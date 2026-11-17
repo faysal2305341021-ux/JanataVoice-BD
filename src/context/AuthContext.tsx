@@ -2,7 +2,7 @@ import * as React from 'react';
 import { signInWithPopup, signOut as firebaseSignOut } from 'firebase/auth';
 import { auth, googleAuthProvider, testFirestoreConnection } from '../lib/firebase.ts';
 import type { UiLocale } from '../lib/i18n.ts';
-import type { UserProfile } from '../types/domain.ts';
+import type { NotificationRecord, UserProfile } from '../types/domain.ts';
 
 interface AuthContextValue {
   user: UserProfile | null;
@@ -11,6 +11,14 @@ interface AuthContextValue {
   locale: UiLocale;
   setLocale: (loc: UiLocale) => void;
   apiFetch: (url: string, init?: RequestInit) => Promise<Response>;
+  notifications: NotificationRecord[];
+  unreadCount: number;
+  latestAlert: NotificationRecord | null;
+  complaintUpdateVersion: number;
+  refreshNotifications: () => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  dismissLatestAlert: () => void;
   loginWithCredentials: (email: string, password: string) => Promise<void>;
   registerWithEkId: (payload: {
     name: string;
@@ -48,6 +56,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   });
   const [loading, setLoading] = React.useState(true);
+  const [notifications, setNotifications] = React.useState<NotificationRecord[]>([]);
+  const [latestAlert, setLatestAlert] = React.useState<NotificationRecord | null>(null);
+  const [complaintUpdateVersion, setComplaintUpdateVersion] = React.useState(0);
   const [locale, setLocaleState] = React.useState<UiLocale>(() => {
     try {
       const saved = localStorage.getItem(LOCALE_STORAGE_KEY);
@@ -97,6 +108,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [token]
   );
 
+  const refreshNotifications = React.useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/notifications');
+      if (!res.ok) return;
+      const data = (await res.json()) as { notifications?: NotificationRecord[] };
+      if (Array.isArray(data.notifications)) {
+        setNotifications(data.notifications);
+      }
+    } catch {
+      // ignore transient network errors
+    }
+  }, [apiFetch]);
+
+  const markNotificationRead = React.useCallback(
+    async (id: string) => {
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setLatestAlert((prev) => (prev?.id === id ? null : prev));
+      try {
+        await apiFetch(`/api/notifications/${encodeURIComponent(id)}/read`, {
+          method: 'PATCH',
+        });
+      } catch {
+        // ignore
+      }
+    },
+    [apiFetch]
+  );
+
+  const markAllNotificationsRead = React.useCallback(async () => {
+    setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    setLatestAlert(null);
+    try {
+      await apiFetch('/api/notifications/read-all', { method: 'PATCH' });
+    } catch {
+      // ignore
+    }
+  }, [apiFetch]);
+
+  const dismissLatestAlert = React.useCallback(() => {
+    setLatestAlert(null);
+  }, []);
+
   React.useEffect(() => {
     testFirestoreConnection();
     let active = true;
@@ -122,6 +177,92 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       active = false;
     };
   }, [token]);
+
+  // Initial notifications load + real-time SSE stream subscription
+  React.useEffect(() => {
+    if (!user) {
+      setNotifications([]);
+      setLatestAlert(null);
+      return;
+    }
+
+    refreshNotifications();
+
+    let cancelled = false;
+    let controller = new AbortController();
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const connectStream = async () => {
+      if (cancelled) return;
+      controller = new AbortController();
+      try {
+        const headers: Record<string, string> = {};
+        if (token) headers.Authorization = `Bearer ${token}`;
+        const res = await fetch('/api/notifications/stream', {
+          headers,
+          credentials: 'include',
+          signal: controller.signal,
+        });
+        if (!res.ok || !res.body) {
+          throw new Error('SSE unavailable');
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        while (!cancelled) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() || '';
+
+          for (const frame of frames) {
+            if (!frame.trim() || frame.startsWith(':')) continue;
+            let eventName = 'message';
+            const dataLines: string[] = [];
+            for (const line of frame.split('\n')) {
+              if (line.startsWith('event:')) {
+                eventName = line.slice(6).trim();
+              } else if (line.startsWith('data:')) {
+                dataLines.push(line.slice(5).trim());
+              }
+            }
+            if (dataLines.length === 0) continue;
+            try {
+              const payload = JSON.parse(dataLines.join('\n'));
+              if (eventName === 'notification' && payload.notification) {
+                const incoming = payload.notification as NotificationRecord;
+                if (incoming.userId === user.id) {
+                  setNotifications((prev) =>
+                    prev.some((p) => p.id === incoming.id) ? prev : [incoming, ...prev]
+                  );
+                  setLatestAlert(incoming);
+                }
+              } else if (eventName === 'complaint_update') {
+                setComplaintUpdateVersion((v) => v + 1);
+              }
+            } catch {
+              // ignore malformed SSE chunk
+            }
+          }
+        }
+      } catch {
+        // retry on drop if not cancelled
+      }
+      if (!cancelled) {
+        retryTimer = setTimeout(connectStream, 4000);
+      }
+    };
+
+    connectStream();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+      if (retryTimer) clearTimeout(retryTimer);
+    };
+  }, [user, token, refreshNotifications]);
 
   const loginWithCredentials = async (email: string, password: string) => {
     const res = await fetch('/api/auth/login', {
@@ -219,6 +360,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const unreadCount = React.useMemo(
+    () => notifications.filter((n) => !n.isRead).length,
+    [notifications]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -228,6 +374,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         locale,
         setLocale,
         apiFetch,
+        notifications,
+        unreadCount,
+        latestAlert,
+        complaintUpdateVersion,
+        refreshNotifications,
+        markNotificationRead,
+        markAllNotificationsRead,
+        dismissLatestAlert,
         loginWithCredentials,
         registerWithEkId,
         loginWithGoogle,

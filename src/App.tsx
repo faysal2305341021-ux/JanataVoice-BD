@@ -7,8 +7,8 @@ function AppShell() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="text-sm font-medium text-slate-600">Loading JanataVoice BD portal...</div>
+      <div className="min-h-screen bg-[#f4f9f6] flex items-center justify-center">
+        <div className="text-sm font-medium text-[#006a4e]">Loading JanataVoice BD portal...</div>
       </div>
     );
   }

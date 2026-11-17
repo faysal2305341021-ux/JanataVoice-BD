@@ -896,7 +896,7 @@ export function generateSeedBundle(): SeedBundle {
       prevHash = evEsc.hash;
     }
 
-    if (i <= 20) {
+    if (i <= 24) {
       notifications.push({
         id: `notif_${i}_1`,
         userId: citizen.id,
@@ -908,6 +908,68 @@ export function generateSeedBundle(): SeedBundle {
         isRead: i > 8,
         createdAt,
       });
+
+      if (status === 'TRIAGING') {
+        const triageLead = SEEDED_USERS.find((u) => u.role === 'triage_officer');
+        if (triageLead) {
+          notifications.push({
+            id: `notif_${i}_triage`,
+            userId: triageLead.id,
+            complaintId: id,
+            trackingId,
+            channel: 'IN_APP',
+            recipientAddress: triageLead.email,
+            message: `New complaint ${trackingId} needs Human Triage (${Math.round(aiConfidence * 100)}% AI confidence).`,
+            isRead: i > 10,
+            createdAt,
+          });
+        }
+      } else if (complaint.assignedOfficerId) {
+        notifications.push({
+          id: `notif_${i}_officer`,
+          userId: complaint.assignedOfficerId,
+          complaintId: id,
+          trackingId,
+          channel: 'IN_APP',
+          recipientAddress: deptOfficer.email,
+          message: `New complaint ${trackingId} (${cat.nameEn} · ${priority}) assigned to your responsibility (${cat.departmentId.replace('dept_', '').toUpperCase()}).`,
+          isRead: i > 12,
+          createdAt,
+        });
+      }
+
+      if (complaint.assignedWorkerId && status === 'IN_PROGRESS') {
+        notifications.push({
+          id: `notif_${i}_worker`,
+          userId: complaint.assignedWorkerId,
+          complaintId: id,
+          trackingId,
+          channel: 'IN_APP',
+          recipientAddress: deptWorker.email,
+          message: `Field dispatch assigned for ${trackingId} in ${citizen.district}.`,
+          isRead: i > 12,
+          createdAt,
+        });
+      }
+
+      if (status === 'ESCALATED' || status === 'REOPENED') {
+        const deptHead = SEEDED_USERS.find(
+          (u) => u.role === 'dept_head' && u.departmentId === cat.departmentId
+        );
+        if (deptHead) {
+          notifications.push({
+            id: `notif_${i}_head`,
+            userId: deptHead.id,
+            complaintId: id,
+            trackingId,
+            channel: 'IN_APP',
+            recipientAddress: deptHead.email,
+            message: `Escalation Notice: ${trackingId} (${status}) escalated to Level ${currentLevel} review.`,
+            isRead: false,
+            createdAt,
+          });
+        }
+      }
     }
   }
 

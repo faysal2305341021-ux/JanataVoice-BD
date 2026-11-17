@@ -6,12 +6,18 @@
     --font-display: 'Plus Jakarta Sans', 'Hind Siliguri', system-ui, sans-serif;
     --font-sans: 'Hind Siliguri', 'Plus Jakarta Sans', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    --civic-green: #006a4e;
+    --civic-green-hover: #00553e;
+    --civic-canvas: #f4f9f6;
+    --civic-surface: #ffffff;
+    --civic-border: #d5e6dc;
+    --civic-ink: #0c2419;
   }
 
   body {
     font-family: var(--font-sans);
-    background-color: #f8fafc;
-    color: #0f172a;
+    background-color: var(--civic-canvas);
+    color: var(--civic-ink);
   }
 
   h1, h2, h3, h4, .font-display {

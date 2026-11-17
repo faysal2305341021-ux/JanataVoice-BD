@@ -85,7 +85,7 @@ export function ComplaintProgressStepper({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="font-display text-xs font-semibold text-slate-700">
+        <h3 className="font-display text-xs font-semibold text-emerald-950">
           {t.progressStepperTitle}
         </h3>
         <span className="font-mono text-[11px] text-slate-500 tabular-nums">
@@ -106,14 +106,14 @@ export function ComplaintProgressStepper({
           const ts = findTimestampForStep(idx);
 
           const nodeClasses = isCompleted
-            ? 'border-emerald-700 bg-emerald-700 text-white'
+            ? 'border-[#006a4e] bg-[#006a4e] text-white'
             : isEscalatedStep
               ? 'border-red-600 bg-red-50 text-red-700'
               : isTriageStep || isReopenedStep
                 ? 'border-amber-600 bg-amber-50 text-amber-800'
                 : isCurrent
-                  ? 'border-emerald-700 bg-emerald-50 text-emerald-800'
-                  : 'border-slate-200 bg-white text-slate-400';
+                  ? 'border-[#006a4e] bg-emerald-50 text-[#006a4e]'
+                  : 'border-emerald-200 bg-white text-slate-400';
 
           return (
             <li key={step.title} className="relative flex sm:flex-col items-start gap-2.5 sm:gap-1.5">
@@ -122,7 +122,7 @@ export function ComplaintProgressStepper({
                 <div
                   aria-hidden="true"
                   className={`hidden sm:block absolute top-3.5 left-8 right-0 h-[1.5px] ${
-                    idx < activeStep ? 'bg-emerald-600' : 'bg-slate-200'
+                    idx < activeStep ? 'bg-[#006a4e]' : 'bg-emerald-100'
                   }`}
                 />
               )}
@@ -144,7 +144,7 @@ export function ComplaintProgressStepper({
               <div className="min-w-0">
                 <div
                   className={`text-xs font-semibold leading-tight ${
-                    isCompleted || isCurrent ? 'text-slate-900' : 'text-slate-400'
+                    isCompleted || isCurrent ? 'text-emerald-950' : 'text-slate-400'
                   }`}
                 >
                   {step.title}

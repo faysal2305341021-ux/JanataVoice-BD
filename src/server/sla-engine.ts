@@ -6,6 +6,7 @@ import type {
   UserRole,
 } from '../types/domain.ts';
 import { buildComplaintEvent, GENESIS_HASH } from './hash-chain.ts';
+import { broadcastComplaintUpdate, broadcastNotification } from './realtime.ts';
 import { getStore, saveStore, type DataStore, type StoredUser } from './store.ts';
 
 export const LEVEL_TO_ROLE: Record<number, UserRole> = {
@@ -71,9 +72,10 @@ function pushNotification(
     recipientAddress?: string;
     message: string;
     createdAt: string;
+    broadcast?: boolean;
   }
 ): void {
-  store.notifications.unshift({
+  const record = {
     id: `notif_${shortId()}`,
     userId: params.userId,
     complaintId: params.complaint.id,
@@ -83,7 +85,11 @@ function pushNotification(
     message: params.message,
     isRead: false,
     createdAt: params.createdAt,
-  });
+  };
+  store.notifications.unshift(record);
+  if (params.broadcast !== false && params.channel === 'IN_APP') {
+    broadcastNotification(record);
+  }
 }
 
 export async function runSlaEscalationSweep(
@@ -318,6 +324,15 @@ export async function runSlaEscalationSweep(
 
       escalationsTriggered += 1;
       escalatedComplaintIds.push(complaint.id);
+      if (persist) {
+        broadcastComplaintUpdate({
+          complaintId: complaint.id,
+          trackingId: complaint.trackingId,
+          status: complaint.status,
+          responsibleUserId: nextAssignee?.id || complaint.assignedOfficerId,
+          departmentId: complaint.departmentId,
+        });
+      }
       continue;
     }
 

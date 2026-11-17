@@ -97,6 +97,21 @@ export interface Complaint {
   resolvedAt?: string;
   createdAt: string;
   closedAt?: string;
+  responsibleUserId?: string;
+  responsibleUserName?: string;
+  responsibleUserRole?: UserRole | 'system';
+}
+
+export interface DashboardSummary {
+  total: number;
+  assignedToMe: number;
+  active: number;
+  atRisk: number;
+  breached: number;
+  escalated: number;
+  resolvedClosed: number;
+  byStatus: Array<{ status: ComplaintStatus; count: number }>;
+  byDepartment: Array<{ departmentId: string; code: string; active: number; breached: number; resolved: number }>;
 }
 
 export interface ComplaintEvent {

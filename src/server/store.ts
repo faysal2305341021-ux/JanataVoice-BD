@@ -124,6 +124,51 @@ export function getStore(): DataStore {
           backfilled = true;
         }
       }
+      const hasStaffNotif = memoryStore.notifications.some(
+        (n) => !n.userId.startsWith('usr_cit')
+      );
+      if (!hasStaffNotif) {
+        const triageLead = memoryStore.users.find((u) => u.role === 'triage_officer');
+        for (const c of memoryStore.complaints.slice(0, 24)) {
+          if (c.status === 'TRIAGING' && triageLead) {
+            memoryStore.notifications.unshift({
+              id: `notif_bf_${c.id}_t`,
+              userId: triageLead.id,
+              complaintId: c.id,
+              trackingId: c.trackingId,
+              channel: 'IN_APP',
+              recipientAddress: triageLead.email,
+              message: `New complaint ${c.trackingId} needs Human Triage (${Math.round(c.aiConfidence * 100)}% AI confidence).`,
+              isRead: false,
+              createdAt: c.createdAt,
+            });
+          } else if (c.assignedOfficerId) {
+            memoryStore.notifications.unshift({
+              id: `notif_bf_${c.id}_o`,
+              userId: c.assignedOfficerId,
+              complaintId: c.id,
+              trackingId: c.trackingId,
+              channel: 'IN_APP',
+              message: `Complaint ${c.trackingId} (${c.categoryCode || 'Civic Issue'}) assigned to your department queue.`,
+              isRead: false,
+              createdAt: c.createdAt,
+            });
+          }
+          if (c.assignedWorkerId && c.status === 'IN_PROGRESS') {
+            memoryStore.notifications.unshift({
+              id: `notif_bf_${c.id}_w`,
+              userId: c.assignedWorkerId,
+              complaintId: c.id,
+              trackingId: c.trackingId,
+              channel: 'IN_APP',
+              message: `Field dispatch assigned for ${c.trackingId} in ${c.district}.`,
+              isRead: false,
+              createdAt: c.createdAt,
+            });
+          }
+        }
+        backfilled = true;
+      }
       if (backfilled) {
         fs.writeFileSync(dataFile, JSON.stringify(memoryStore, null, 2), 'utf8');
       }

@@ -31,6 +31,8 @@ export const TRANSLATIONS = {
     navLogout: 'Sign Out',
     navTriage: 'Triage Queue',
     navMyComplaints: 'My Complaints',
+    navDashboard: 'Dashboard',
+    navNotifications: 'Notifications',
 
     // Auth Portal
     gatewayKicker: "People's Republic of Bangladesh · Unified Civic Service Gateway",
@@ -224,6 +226,44 @@ export const TRANSLATIONS = {
     triageTitle: 'Human Triage & Low-Confidence Queue',
     triageDesc:
       'Complaints with AI confidence below 70% or failed routing land here for manual verification and training-data logging.',
+
+    // Unified User Complaint Dashboard & Real-Time Notifications
+    dashboardTitleCitizen: 'My Complaint Dashboard',
+    dashboardDescCitizen:
+      'Track your submitted grievances, responsible authorities, live SLA countdowns, and analytics.',
+    dashboardTitleStaff: 'Complaint Operations Dashboard',
+    dashboardDescStaff:
+      'Monitor complaints under your responsibility, SLA risk trends, field dispatch, and real-time alerts.',
+    kpiAssignedToMe: 'Assigned to Me',
+    kpiSlaBreached: 'SLA Breached',
+    chartStatusTitle: 'Complaints by Workflow Status',
+    chartDeptTitle: 'Department Workload & SLA Health',
+    searchDashboardPlaceholder: 'Search Tracking ID, issue, district, or responsible officer...',
+    filterMine: 'Responsible for Me',
+    responsibleLabel: 'Responsible',
+    unassignedLabel: 'Pending Assignment',
+    dispatchWorkerLabel: 'Assign Field Worker / Officer',
+    assignBtn: 'Assign',
+    assigningBtn: 'Assigning...',
+    actionNotesPlaceholder: 'Optional action or resolution notes...',
+    markInProgressBtn: 'Start Work',
+    markResolvedBtn: 'Mark Resolved',
+    confirmCloseBtn: 'Confirm & Close',
+    reopenComplaintBtn: 'Reopen Complaint',
+    newAlertPrefix: 'New Notification',
+    openComplaintBtn: 'Open Complaint',
+    notificationsTitle: 'Responsible Alerts & Notification Inbox',
+    notificationsDesc:
+      'Real-time notifications delivered when complaints are assigned, escalated, or updated.',
+    tabUnread: 'Unread',
+    tabAllNotifs: 'All Notifications',
+    tabOutbox: 'System SMS/Email Outbox',
+    markAllReadBtn: 'Mark All Read',
+    markReadBtn: 'Mark Read',
+    readLabel: 'Read',
+    unreadLabel: 'Unread',
+    noNotificationsMsg: 'No notifications in this view.',
+    viewInDashboardBtn: 'Open in Dashboard',
   },
   bn: {
     brandName: 'জনতাভয়েস বিডি',
@@ -235,6 +275,8 @@ export const TRANSLATIONS = {
     navLogout: 'প্রস্থান',
     navTriage: 'ট্রায়াজ কিউ',
     navMyComplaints: 'আমার অভিযোগ',
+    navDashboard: 'ড্যাশবোর্ড',
+    navNotifications: 'নোটিফিকেশন',
 
     // Auth Portal
     gatewayKicker: 'গণপ্রজাতন্ত্রী বাংলাদেশ সরকার · একীভূত নাগরিক সেবা গেটওয়ে',
@@ -428,5 +470,43 @@ export const TRANSLATIONS = {
     triageTitle: 'ট্রায়াজ অফিসার ও লো-কনফিডেন্স কিউ',
     triageDesc:
       '৭০%-এর কম কনফিডেন্সযুক্ত অভিযোগসমূহ এআই-এর বিশ্লেষণসহ এখানে আসে। পুনরায় রুট করলে তা প্রশিক্ষণ ডেটা হিসেবে সংরক্ষিত হয়।',
+
+    // Unified User Complaint Dashboard & Real-Time Notifications
+    dashboardTitleCitizen: 'আমার অভিযোগ ড্যাশবোর্ড',
+    dashboardDescCitizen:
+      'দাখিলকৃত অভিযোগের অবস্থা, দায়িত্বপ্রাপ্ত কর্মকর্তা, লাইভ এসএলএ টাইমার এবং পরিসংখ্যান দেখুন।',
+    dashboardTitleStaff: 'অভিযোগ ব্যবস্থাপনা ড্যাশবোর্ড',
+    dashboardDescStaff:
+      'আপনার দায়িত্বাধীন অভিযোগসমূহ, এসএলএ ঝুঁকি, মাঠপর্যায়ের ব্যবস্থা এবং রিয়েল-টাইম সতর্কবার্তা পর্যবেক্ষণ করুন।',
+    kpiAssignedToMe: 'আমার দায়িত্বাধীন',
+    kpiSlaBreached: 'এসএলএ অতিক্রান্ত',
+    chartStatusTitle: 'অবস্থা অনুযায়ী অভিযোগের সংখ্যা',
+    chartDeptTitle: 'দপ্তরভিত্তিক কার্যক্রম ও এসএলএ চিত্র',
+    searchDashboardPlaceholder: 'ট্র্যাকিং আইডি, বিবরণ, জেলা বা কর্মকর্তার নাম খুঁজুন...',
+    filterMine: 'আমার দায়িত্বাধীন',
+    responsibleLabel: 'দায়িত্বপ্রাপ্ত',
+    unassignedLabel: 'দায়িত্ব বণ্টন অপেক্ষমাণ',
+    dispatchWorkerLabel: 'মাঠকর্মী / কর্মকর্তা নিয়োগ করুন',
+    assignBtn: 'নিয়োগ করুন',
+    assigningBtn: 'নিয়োগ হচ্ছে...',
+    actionNotesPlaceholder: 'কার্যক্রম বা সমাধানের সংক্ষিপ্ত নোট (ঐচ্ছিক)...',
+    markInProgressBtn: 'কাজ শুরু করুন',
+    markResolvedBtn: 'সমাধান সম্পন্ন',
+    confirmCloseBtn: 'নিশ্চিত ও নিষ্পত্তি করুন',
+    reopenComplaintBtn: 'পুনরায় খুলুন',
+    newAlertPrefix: 'নতুন নোটিফিকেশন',
+    openComplaintBtn: 'অভিযোগ দেখুন',
+    notificationsTitle: 'দায়িত্বশীল নোটিফিকেশন ও সতর্কবার্তা',
+    notificationsDesc:
+      'নতুন অভিযোগ দায়িত্বপ্রাপ্ত হলে, এসকালেট হলে বা অবস্থা পরিবর্তন হলে তাৎক্ষণিক নোটিফিকেশন দেখুন।',
+    tabUnread: 'অপঠিত',
+    tabAllNotifs: 'সকল নোটিফিকেশন',
+    tabOutbox: 'সিস্টেম এসএমএস/ইমেইল আউটবক্স',
+    markAllReadBtn: 'সব পঠিত চিহ্নিত করুন',
+    markReadBtn: 'পঠিত',
+    readLabel: 'পঠিত',
+    unreadLabel: 'নতুন',
+    noNotificationsMsg: 'এই তালিকায় কোনো নোটিফিকেশন নেই।',
+    viewInDashboardBtn: 'ড্যাশবোর্ডে দেখুন',
   },
 } as const;

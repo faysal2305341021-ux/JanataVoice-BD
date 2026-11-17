@@ -2,7 +2,13 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import path from 'node:path';
 import { createServer as createViteServer } from 'vite';
-import type { Complaint, ComplaintStatus, UserProfile } from './src/types/domain.ts';
+import type {
+  Complaint,
+  ComplaintStatus,
+  DashboardSummary,
+  NotificationRecord,
+  UserProfile,
+} from './src/types/domain.ts';
 import {
   generateEkIdToken,
   isValidBangladeshiNid,
@@ -16,14 +22,15 @@ import {
 import { classifyComplaint } from './src/server/classifier.ts';
 import { adminAuth } from './src/server/firebase-admin.ts';
 import { buildComplaintEvent, GENESIS_HASH } from './src/server/hash-chain.ts';
+import { broadcastComplaintUpdate, broadcastNotification } from './src/server/realtime.ts';
 import { hashPassword } from './src/server/seed-data.ts';
 import { startSlaScheduler } from './src/server/sla-engine.ts';
 import { registerSlaRoutes } from './src/server/sla-routes.ts';
-import { getStore, getStoreCounts, resetStore, saveStore } from './src/server/store.ts';
+import { getStore, getStoreCounts, resetStore, saveStore, type DataStore } from './src/server/store.ts';
 
 const PORT = 3000;
 
-async function startServer() {
+export function createApiApp() {
   const app = express();
   app.use(express.json({ limit: '4mb' }));
   app.use(cookieParser());
@@ -305,6 +312,44 @@ async function startServer() {
     return list.length ? list[list.length - 1].hash : GENESIS_HASH;
   };
 
+  const resolveResponsibleParty = (store: DataStore, c: Complaint) => {
+    let targetUser =
+      c.status === 'TRIAGING'
+        ? store.users.find((u) => u.role === 'triage_officer')
+        : c.assignedWorkerId && (c.status === 'IN_PROGRESS' || c.currentLevel === 1)
+          ? store.users.find((u) => u.id === c.assignedWorkerId)
+          : c.assignedOfficerId
+            ? store.users.find((u) => u.id === c.assignedOfficerId)
+            : undefined;
+
+    if (!targetUser && c.departmentId && c.status !== 'TRIAGING') {
+      targetUser = store.users.find(
+        (u) => u.role === 'dept_officer' && u.departmentId === c.departmentId
+      );
+    }
+    if (!targetUser) {
+      targetUser = store.users.find((u) => u.role === (c.status === 'TRIAGING' ? 'triage_officer' : 'admin'));
+    }
+
+    return {
+      responsibleUserId: targetUser?.id,
+      responsibleUserName: targetUser?.name || (c.status === 'TRIAGING' ? 'Triage Team' : 'System Router'),
+      responsibleUserRole: targetUser?.role || ('system' as const),
+    };
+  };
+
+  const enrichComplaint = (store: DataStore, c: Complaint): Complaint => ({
+    ...c,
+    ...resolveResponsibleParty(store, c),
+  });
+
+  const createAndBroadcastNotification = (store: DataStore, notif: NotificationRecord) => {
+    store.notifications.unshift(notif);
+    if (notif.channel === 'IN_APP') {
+      broadcastNotification(notif);
+    }
+  };
+
   // Preview AI Classification (Gemini or Offline Bangla/English/Banglish Fallback)
   app.post('/api/complaints/classify', requireAuth, async (req: AuthedRequest, res) => {
     try {
@@ -378,7 +423,9 @@ async function startServer() {
       const citizenOverrideCat = citizenOverrideCategoryCode
         ? store.categories.find((c) => c.code === citizenOverrideCategoryCode)
         : undefined;
-      const aiMatchedCat = store.categories.find((c) => c.code === classification.category_code);
+      const aiMatchedCat = store.categories.find(
+        (c) => c.code === classification.category_code || c.id === classification.category_id
+      );
       const effectiveCat = citizenOverrideCat || aiMatchedCat;
 
       const isOverriddenByCitizen = Boolean(
@@ -513,7 +560,8 @@ async function startServer() {
         store.events.push(evAssign);
       }
 
-      store.notifications.unshift({
+      // Notify citizen who submitted
+      createAndBroadcastNotification(store, {
         id: `notif_${Date.now().toString(36)}_c`,
         userId: req.user!.id,
         complaintId: id,
@@ -522,14 +570,99 @@ async function startServer() {
         recipientAddress: req.user!.email,
         message: goesToTriage
           ? `Complaint ${trackingId} received and routed to Human Triage (AI confidence ${Math.round(classification.confidence * 100)}%).`
-          : `Complaint ${trackingId} routed to ${effectiveCat?.departmentId.replace('dept_', '').toUpperCase()} (${effectiveCat?.nameEn}).`,
+          : `Complaint ${trackingId} routed to ${effectiveCat?.departmentId.replace('dept_', '').toUpperCase()} (${effectiveCat?.nameEn})${assignedOfficer ? ` · Assigned to ${assignedOfficer.name}` : ''}.`,
         isRead: false,
         createdAt,
       });
 
+      // Notify responsible staff immediately when a new complaint arrives
+      if (goesToTriage) {
+        const triageOfficers = store.users.filter((u) => u.role === 'triage_officer');
+        triageOfficers.forEach((officer, idx) => {
+          createAndBroadcastNotification(store, {
+            id: `notif_${Date.now().toString(36)}_tr_${idx}`,
+            userId: officer.id,
+            complaintId: id,
+            trackingId,
+            channel: 'IN_APP',
+            recipientAddress: officer.email,
+            message: `New complaint ${trackingId} from ${req.user!.district} requires Human Triage (${Math.round(classification.confidence * 100)}% AI confidence).`,
+            isRead: false,
+            createdAt,
+          });
+        });
+      } else if (assignedOfficer && effectiveCat) {
+        const deptCode = effectiveCat.departmentId.replace('dept_', '').toUpperCase();
+        createAndBroadcastNotification(store, {
+          id: `notif_${Date.now().toString(36)}_off`,
+          userId: assignedOfficer.id,
+          complaintId: id,
+          trackingId,
+          channel: 'IN_APP',
+          recipientAddress: assignedOfficer.email,
+          message: `New ${complaint.priority} complaint ${trackingId} (${effectiveCat.nameEn}) in ${req.user!.district} assigned to you (${deptCode}).`,
+          isRead: false,
+          createdAt,
+        });
+        createAndBroadcastNotification(store, {
+          id: `notif_${Date.now().toString(36)}_off_em`,
+          userId: assignedOfficer.id,
+          complaintId: id,
+          trackingId,
+          channel: 'EMAIL_MOCK',
+          recipientAddress: assignedOfficer.email,
+          message: `[New Complaint Assigned] ${trackingId} · ${effectiveCat.nameEn} · Citizen: ${req.user!.name} (${req.user!.district}).`,
+          isRead: false,
+          createdAt,
+        });
+
+        if (complaint.priority === 'CRITICAL') {
+          const deptHead = store.users.find(
+            (u) => u.role === 'dept_head' && u.departmentId === effectiveCat.departmentId
+          );
+          if (deptHead && deptHead.id !== assignedOfficer.id) {
+            createAndBroadcastNotification(store, {
+              id: `notif_${Date.now().toString(36)}_hd`,
+              userId: deptHead.id,
+              complaintId: id,
+              trackingId,
+              channel: 'IN_APP',
+              recipientAddress: deptHead.email,
+              message: `CRITICAL new complaint ${trackingId} (${effectiveCat.nameEn}) assigned to ${assignedOfficer.name}.`,
+              isRead: false,
+              createdAt,
+            });
+          }
+        }
+      } else {
+        const fallbackAdmins = store.users.filter((u) => u.role === 'admin');
+        fallbackAdmins.forEach((adm, idx) => {
+          createAndBroadcastNotification(store, {
+            id: `notif_${Date.now().toString(36)}_adm_${idx}`,
+            userId: adm.id,
+            complaintId: id,
+            trackingId,
+            channel: 'IN_APP',
+            recipientAddress: adm.email,
+            message: `New complaint ${trackingId} requires department assignment.`,
+            isRead: false,
+            createdAt,
+          });
+        });
+      }
+
       await saveStore();
+      const enriched = enrichComplaint(store, complaint);
+      broadcastComplaintUpdate({
+        complaintId: enriched.id,
+        trackingId: enriched.trackingId,
+        status: enriched.status,
+        responsibleUserId: enriched.responsibleUserId,
+        departmentId: enriched.departmentId,
+      });
+
       res.status(201).json({
-        complaint,
+        complaint: enriched,
         events: store.events.filter((e) => e.complaintId === id),
       });
     } catch (error) {
@@ -543,8 +676,394 @@ async function startServer() {
     const store = getStore();
     const list = store.complaints
       .filter((c) => c.citizenId === req.user!.id)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((c) => enrichComplaint(store, c));
     res.json({ complaints: list });
+  });
+
+  // Unified Role-Scoped User Complaint Dashboard
+  app.get('/api/complaints/dashboard', requireAuth, (req: AuthedRequest, res) => {
+    const store = getStore();
+    const user = req.user!;
+    const nowMs = Date.now();
+
+    let scoped: Complaint[];
+    if (user.role === 'citizen') {
+      scoped = store.complaints.filter((c) => c.citizenId === user.id);
+    } else if (user.role === 'triage_officer') {
+      scoped = store.complaints.filter(
+        (c) => c.status === 'TRIAGING' || c.aiConfidence < 0.7 || c.assignedOfficerId === user.id
+      );
+    } else if (user.role === 'field_worker') {
+      scoped = store.complaints.filter(
+        (c) =>
+          c.assignedWorkerId === user.id ||
+          (user.departmentId ? c.departmentId === user.departmentId : false)
+      );
+    } else if (user.role === 'dept_officer') {
+      scoped = store.complaints.filter(
+        (c) =>
+          c.assignedOfficerId === user.id ||
+          (user.departmentId ? c.departmentId === user.departmentId : false)
+      );
+    } else if (user.role === 'dept_head') {
+      scoped = store.complaints.filter(
+        (c) =>
+          (user.departmentId ? c.departmentId === user.departmentId : true) ||
+          c.currentLevel >= 3
+      );
+    } else {
+      // high_authority & admin see national portfolio
+      scoped = [...store.complaints];
+    }
+
+    const enrichedList = scoped
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .map((c) => enrichComplaint(store, c));
+
+    const statuses: ComplaintStatus[] = [
+      'SUBMITTED',
+      'TRIAGING',
+      'ASSIGNED',
+      'IN_PROGRESS',
+      'ESCALATED',
+      'REOPENED',
+      'RESOLVED',
+      'CLOSED',
+    ];
+
+    let active = 0;
+    let atRisk = 0;
+    let breached = 0;
+    let escalated = 0;
+    let resolvedClosed = 0;
+    let assignedToMe = 0;
+
+    const statusCounts = new Map<ComplaintStatus, number>();
+    for (const s of statuses) statusCounts.set(s, 0);
+
+    const deptMap = new Map<
+      string,
+      { departmentId: string; code: string; active: number; breached: number; resolved: number }
+    >();
+    for (const d of store.departments) {
+      deptMap.set(d.id, { departmentId: d.id, code: d.code, active: 0, breached: 0, resolved: 0 });
+    }
+
+    for (const c of enrichedList) {
+      statusCounts.set(c.status, (statusCounts.get(c.status) || 0) + 1);
+
+      const isMyResponsibility =
+        c.responsibleUserId === user.id ||
+        c.assignedOfficerId === user.id ||
+        c.assignedWorkerId === user.id ||
+        (user.role === 'triage_officer' && c.status === 'TRIAGING');
+      if (isMyResponsibility && c.status !== 'CLOSED' && c.status !== 'RESOLVED') {
+        assignedToMe += 1;
+      }
+
+      const isTerminal = c.status === 'RESOLVED' || c.status === 'CLOSED';
+      const deptEntry = c.departmentId ? deptMap.get(c.departmentId) : undefined;
+
+      if (isTerminal) {
+        resolvedClosed += 1;
+        if (deptEntry) deptEntry.resolved += 1;
+      } else {
+        active += 1;
+        if (c.status === 'ESCALATED' || c.status === 'REOPENED') {
+          escalated += 1;
+        }
+        const dueMs = new Date(c.slaDueAt).getTime();
+        const createdMs = new Date(c.createdAt).getTime();
+        const totalMs = Math.max(1, dueMs - createdMs);
+        const elapsedPct = ((nowMs - createdMs) / totalMs) * 100;
+        if (dueMs <= nowMs) {
+          breached += 1;
+          if (deptEntry) deptEntry.breached += 1;
+        } else {
+          if (elapsedPct >= 80) atRisk += 1;
+          if (deptEntry) deptEntry.active += 1;
+        }
+      }
+    }
+
+    const summary: DashboardSummary = {
+      total: enrichedList.length,
+      assignedToMe,
+      active,
+      atRisk,
+      breached,
+      escalated,
+      resolvedClosed,
+      byStatus: statuses.map((s) => ({ status: s, count: statusCounts.get(s) || 0 })),
+      byDepartment: Array.from(deptMap.values()),
+    };
+
+    const assignableStaff = store.users
+      .filter(
+        (u) =>
+          (u.role === 'field_worker' || u.role === 'dept_officer') &&
+          (user.role === 'admin' ||
+            user.role === 'high_authority' ||
+            !user.departmentId ||
+            u.departmentId === user.departmentId)
+      )
+      .map((u) => ({
+        id: u.id,
+        name: u.name,
+        role: u.role,
+        departmentId: u.departmentId || null,
+        district: u.district,
+      }));
+
+    res.json({
+      complaints: enrichedList,
+      summary,
+      assignableStaff,
+    });
+  });
+
+  // Assign field worker / officer from dashboard
+  app.post(
+    '/api/complaints/:id/assign',
+    requireAuth,
+    requireRole('dept_officer', 'dept_head', 'admin'),
+    async (req: AuthedRequest, res) => {
+      try {
+        const { assigneeId, notes } = req.body as { assigneeId?: string; notes?: string };
+        if (!assigneeId) {
+          return res.status(400).json({ error: 'Assignee user ID is required.' });
+        }
+        const store = getStore();
+        const complaint = store.complaints.find((c) => c.id === req.params.id);
+        if (!complaint) {
+          return res.status(404).json({ error: 'Complaint not found.' });
+        }
+        const assignee = store.users.find((u) => u.id === assigneeId);
+        if (!assignee) {
+          return res.status(404).json({ error: 'Assignee user not found.' });
+        }
+
+        const nowIso = new Date().toISOString();
+        const prevStatus = complaint.status;
+        if (assignee.role === 'field_worker') {
+          complaint.assignedWorkerId = assignee.id;
+          if (complaint.status === 'SUBMITTED' || complaint.status === 'ASSIGNED') {
+            complaint.status = 'IN_PROGRESS';
+          }
+        } else {
+          complaint.assignedOfficerId = assignee.id;
+          if (complaint.status === 'SUBMITTED') {
+            complaint.status = 'ASSIGNED';
+          }
+        }
+
+        store.assignments.unshift({
+          id: `asgn_${Date.now().toString(36)}`,
+          complaintId: complaint.id,
+          assigneeId: assignee.id,
+          assigneeRole: assignee.role,
+          assignedBy: req.user!.id,
+          assignedAt: nowIso,
+        });
+
+        const prevHash = getLastEventHash(complaint.id);
+        const ev = buildComplaintEvent({
+          id: `evt_${Date.now().toString(36)}_as`,
+          complaintId: complaint.id,
+          actorId: req.user!.id,
+          actorName: req.user!.name,
+          actorRole: req.user!.role,
+          eventType: assignee.role === 'field_worker' ? 'DISPATCHED_TO_FIELD' : 'REASSIGNED_OFFICER',
+          fromStatus: prevStatus,
+          toStatus: complaint.status,
+          payload: {
+            assigneeId: assignee.id,
+            assigneeRole: assignee.role,
+            notes: notes?.trim() || '',
+          },
+          prevHash,
+          createdAt: nowIso,
+        });
+        store.events.push(ev);
+
+        createAndBroadcastNotification(store, {
+          id: `notif_${Date.now().toString(36)}_as_w`,
+          userId: assignee.id,
+          complaintId: complaint.id,
+          trackingId: complaint.trackingId,
+          channel: 'IN_APP',
+          recipientAddress: assignee.email,
+          message: `You have been assigned complaint ${complaint.trackingId} (${complaint.categoryCode || 'Civic Issue'}) in ${complaint.district}.${notes?.trim() ? ` Note: ${notes.trim()}` : ''}`,
+          isRead: false,
+          createdAt: nowIso,
+        });
+
+        createAndBroadcastNotification(store, {
+          id: `notif_${Date.now().toString(36)}_as_c`,
+          userId: complaint.citizenId,
+          complaintId: complaint.id,
+          trackingId: complaint.trackingId,
+          channel: 'IN_APP',
+          message: `Update on ${complaint.trackingId}: Assigned to ${assignee.name} (${assignee.role.replace('_', ' ')}).`,
+          isRead: false,
+          createdAt: nowIso,
+        });
+
+        await saveStore();
+        const enriched = enrichComplaint(store, complaint);
+        broadcastComplaintUpdate({
+          complaintId: enriched.id,
+          trackingId: enriched.trackingId,
+          status: enriched.status,
+          responsibleUserId: enriched.responsibleUserId,
+          departmentId: enriched.departmentId,
+        });
+
+        res.json({ complaint: enriched, event: ev });
+      } catch (error) {
+        console.error('Assign complaint error:', error);
+        res.status(500).json({ error: 'Failed to assign complaint.' });
+      }
+    }
+  );
+
+  // Update complaint workflow status (Staff progress/resolve OR Citizen confirm/reopen)
+  app.patch('/api/complaints/:id/status', requireAuth, async (req: AuthedRequest, res) => {
+    try {
+      const { status: nextStatus, notes } = req.body as {
+        status?: ComplaintStatus;
+        notes?: string;
+      };
+      if (!nextStatus) {
+        return res.status(400).json({ error: 'Target status is required.' });
+      }
+      const store = getStore();
+      const complaint = store.complaints.find((c) => c.id === req.params.id);
+      if (!complaint) {
+        return res.status(404).json({ error: 'Complaint not found.' });
+      }
+
+      const user = req.user!;
+      const nowIso = new Date().toISOString();
+      const prevStatus = complaint.status;
+
+      if (user.role === 'citizen') {
+        if (complaint.citizenId !== user.id) {
+          return res.status(403).json({ error: 'You can only update your own complaints.' });
+        }
+        if (nextStatus !== 'CLOSED' && nextStatus !== 'REOPENED') {
+          return res.status(400).json({ error: 'Citizens can only confirm closure (CLOSED) or reopen (REOPENED).' });
+        }
+      } else if (!['field_worker', 'dept_officer', 'dept_head', 'high_authority', 'admin'].includes(user.role)) {
+        return res.status(403).json({ error: 'Role not authorized to change workflow status.' });
+      }
+
+      complaint.status = nextStatus;
+      if (nextStatus === 'RESOLVED') {
+        complaint.resolvedAt = nowIso;
+      } else if (nextStatus === 'CLOSED') {
+        complaint.closedAt = nowIso;
+        store.feedbacks.unshift({
+          id: `fb_${Date.now().toString(36)}`,
+          complaintId: complaint.id,
+          citizenId: user.id,
+          satisfied: true,
+          comment: notes?.trim() || 'Citizen confirmed resolution.',
+          createdAt: nowIso,
+        });
+      } else if (nextStatus === 'REOPENED') {
+        const fromLevel = complaint.currentLevel || 1;
+        const nextLevel = Math.max(2, Math.min(4, fromLevel + 1));
+        complaint.currentLevel = nextLevel;
+        const appellateRole = nextLevel >= 3 ? 'dept_head' : 'dept_officer';
+        const appellate =
+          store.users.find(
+            (u) => u.role === appellateRole && (!complaint.departmentId || u.departmentId === complaint.departmentId)
+          ) || store.users.find((u) => u.role === 'dept_head');
+        if (appellate) {
+          complaint.assignedOfficerId = appellate.id;
+          createAndBroadcastNotification(store, {
+            id: `notif_${Date.now().toString(36)}_re_app`,
+            userId: appellate.id,
+            complaintId: complaint.id,
+            trackingId: complaint.trackingId,
+            channel: 'IN_APP',
+            recipientAddress: appellate.email,
+            message: `REOPENED APPEAL: Citizen reopened ${complaint.trackingId}; escalated directly to Level ${nextLevel} (${appellate.name}).`,
+            isRead: false,
+            createdAt: nowIso,
+          });
+        }
+        store.feedbacks.unshift({
+          id: `fb_${Date.now().toString(36)}`,
+          complaintId: complaint.id,
+          citizenId: user.id,
+          satisfied: false,
+          comment: notes?.trim() || 'Citizen reopened complaint for appellate review.',
+          createdAt: nowIso,
+        });
+        store.escalations.unshift({
+          id: `esc_${Date.now().toString(36)}`,
+          complaintId: complaint.id,
+          fromLevel,
+          toLevel: nextLevel,
+          fromRole: 'field_worker',
+          toRole: appellateRole,
+          reason: notes?.trim() || 'Citizen reopened resolved complaint — skipped Level 1 to appellate authority.',
+          escalatedAt: nowIso,
+        });
+      }
+
+      const prevHash = getLastEventHash(complaint.id);
+      const ev = buildComplaintEvent({
+        id: `evt_${Date.now().toString(36)}_st`,
+        complaintId: complaint.id,
+        actorId: user.id,
+        actorName: user.name,
+        actorRole: user.role,
+        eventType:
+          nextStatus === 'CLOSED'
+            ? 'CITIZEN_CONFIRMED_CLOSE'
+            : nextStatus === 'REOPENED'
+              ? 'CITIZEN_REOPENED'
+              : `STATUS_CHANGED_${nextStatus}`,
+        fromStatus: prevStatus,
+        toStatus: nextStatus,
+        payload: { notes: notes?.trim() || '' },
+        prevHash,
+        createdAt: nowIso,
+      });
+      store.events.push(ev);
+
+      if (user.role !== 'citizen') {
+        createAndBroadcastNotification(store, {
+          id: `notif_${Date.now().toString(36)}_st_c`,
+          userId: complaint.citizenId,
+          complaintId: complaint.id,
+          trackingId: complaint.trackingId,
+          channel: 'IN_APP',
+          message: `Complaint ${complaint.trackingId} status updated to ${nextStatus} by ${user.name}.${notes?.trim() ? ` Note: ${notes.trim()}` : ''}`,
+          isRead: false,
+          createdAt: nowIso,
+        });
+      }
+
+      await saveStore();
+      const enriched = enrichComplaint(store, complaint);
+      broadcastComplaintUpdate({
+        complaintId: enriched.id,
+        trackingId: enriched.trackingId,
+        status: enriched.status,
+        responsibleUserId: enriched.responsibleUserId,
+        departmentId: enriched.departmentId,
+      });
+
+      res.json({ complaint: enriched, event: ev });
+    } catch (error) {
+      console.error('Update status error:', error);
+      res.status(500).json({ error: 'Failed to update complaint status.' });
+    }
   });
 
   // Complaint detail + vertical audit timeline
@@ -563,7 +1082,7 @@ async function startServer() {
       .filter((e) => e.complaintId === complaint.id)
       .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     const corrections = store.aiCorrections.filter((a) => a.complaintId === complaint.id);
-    res.json({ complaint, events, corrections });
+    res.json({ complaint: enrichComplaint(store, complaint), events, corrections });
   });
 
   // Triage Officer Queue (Low-confidence < 0.70 & TRIAGING complaints)
@@ -703,8 +1222,8 @@ async function startServer() {
         });
         store.events.push(ev);
 
-        // Notify citizen & assigned department officer
-        store.notifications.unshift({
+        // Notify citizen & assigned department officer in real time
+        createAndBroadcastNotification(store, {
           id: `notif_${Date.now().toString(36)}_tr_c`,
           userId: complaint.citizenId,
           complaintId: complaint.id,
@@ -715,22 +1234,40 @@ async function startServer() {
           isRead: false,
           createdAt: nowIso,
         });
+        createAndBroadcastNotification(store, {
+          id: `notif_${Date.now().toString(36)}_tr_c_app`,
+          userId: complaint.citizenId,
+          complaintId: complaint.id,
+          trackingId: complaint.trackingId,
+          channel: 'IN_APP',
+          message: `Triage routed ${complaint.trackingId} to ${targetCat.departmentId.replace('dept_', '').toUpperCase()}${deptOfficer ? ` · Officer: ${deptOfficer.name}` : ''}.`,
+          isRead: false,
+          createdAt: nowIso,
+        });
         if (deptOfficer) {
-          store.notifications.unshift({
+          createAndBroadcastNotification(store, {
             id: `notif_${Date.now().toString(36)}_tr_o`,
             userId: deptOfficer.id,
             complaintId: complaint.id,
             trackingId: complaint.trackingId,
             channel: 'IN_APP',
             recipientAddress: deptOfficer.email,
-            message: `Triage officer assigned ${complaint.trackingId} (${targetCat.code}) to your department queue.`,
+            message: `Triage officer assigned new complaint ${complaint.trackingId} (${targetCat.nameEn}) to your responsibility.`,
             isRead: false,
             createdAt: nowIso,
           });
         }
 
         await saveStore();
-        res.json({ complaint, correction, event: ev });
+        const enriched = enrichComplaint(store, complaint);
+        broadcastComplaintUpdate({
+          complaintId: enriched.id,
+          trackingId: enriched.trackingId,
+          status: enriched.status,
+          responsibleUserId: enriched.responsibleUserId,
+          departmentId: enriched.departmentId,
+        });
+        res.json({ complaint: enriched, correction, event: ev });
       } catch (error) {
         console.error('Triage reroute error:', error);
         res.status(500).json({ error: 'Failed to re-route complaint.' });
@@ -740,6 +1277,12 @@ async function startServer() {
 
   // --- STAGE 3: SLA & ESCALATION ENGINE ROUTES + 5-MIN SCHEDULER ---
   registerSlaRoutes(app);
+
+  return app;
+}
+
+async function startServer() {
+  const app = createApiApp();
 
   // Vite dev middleware or production static build
   if (process.env.NODE_ENV !== 'production') {
@@ -762,7 +1305,9 @@ async function startServer() {
   });
 }
 
-startServer().catch((err) => {
-  console.error('Fatal server startup error:', err);
-  process.exit(1);
-});
+if (process.env.JANATAVOICE_TEST_NO_LISTEN !== '1') {
+  startServer().catch((err) => {
+    console.error('Fatal server startup error:', err);
+    process.exit(1);
+  });
+}

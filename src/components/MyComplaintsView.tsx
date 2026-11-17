@@ -180,13 +180,13 @@ export function MyComplaintsView({
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Surface className="p-4">
           <div className="text-xs text-slate-500">{t.kpiTotalFiled}</div>
-          <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+          <div className="mt-1 font-mono text-2xl font-semibold text-emerald-950 tabular-nums">
             {totalCount}
           </div>
         </Surface>
         <Surface className="p-4">
           <div className="text-xs text-slate-500">{t.kpiActiveTrack}</div>
-          <div className="mt-1 font-mono text-2xl font-semibold text-emerald-700 tabular-nums">
+          <div className="mt-1 font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">
             {activeCount}
           </div>
         </Surface>
@@ -198,7 +198,7 @@ export function MyComplaintsView({
         </Surface>
         <Surface className="p-4">
           <div className="text-xs text-slate-500">{t.kpiResolvedClosed}</div>
-          <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+          <div className="mt-1 font-mono text-2xl font-semibold text-emerald-950 tabular-nums">
             {resolvedCount}
           </div>
         </Surface>
@@ -206,7 +206,7 @@ export function MyComplaintsView({
 
       {/* Interactive Status Filter & Real-Time Sync Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="inline-flex flex-wrap items-center gap-1 rounded-md bg-slate-100 p-1">
+        <div className="inline-flex flex-wrap items-center gap-1 rounded-md border border-emerald-100 bg-emerald-50/70 p-1">
           {(
             [
               { id: 'ALL', label: `${t.filterAll} (${totalCount})` },
@@ -221,8 +221,8 @@ export function MyComplaintsView({
               onClick={() => setStatusFilter(tab.id)}
               className={`rounded px-3 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
                 statusFilter === tab.id
-                  ? 'bg-white text-slate-900 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-white text-emerald-950 shadow-sm'
+                  : 'text-emerald-900/70 hover:text-emerald-950'
               }`}
             >
               {tab.label}
@@ -276,8 +276,8 @@ export function MyComplaintsView({
           </Surface>
 
           <Surface className="overflow-hidden">
-            <div className="border-b border-slate-200 px-5 py-3.5 flex items-center justify-between">
-              <h2 className="font-display text-sm font-semibold text-slate-900">
+            <div className="border-b border-emerald-200/80 px-5 py-3.5 flex items-center justify-between">
+              <h2 className="font-display text-sm font-semibold text-emerald-950">
                 {t.myFiledHeading}
               </h2>
               <span className="font-mono text-xs text-slate-500 tabular-nums">
@@ -290,7 +290,7 @@ export function MyComplaintsView({
             ) : filteredComplaints.length === 0 ? (
               <div className="p-6 text-xs text-slate-500">{t.noComplaintsYet}</div>
             ) : (
-              <div className="divide-y divide-slate-100 max-h-[640px] overflow-y-auto">
+              <div className="divide-y divide-emerald-100 max-h-[640px] overflow-y-auto">
                 {filteredComplaints.map((c) => {
                   const pct = getProgressPercent(c.status);
                   const isSelected = selectedId === c.id;
@@ -300,11 +300,11 @@ export function MyComplaintsView({
                       type="button"
                       onClick={() => setSelectedId(c.id)}
                       className={`w-full text-left px-5 py-4 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-slate-50' : 'hover:bg-slate-50'
+                        isSelected ? 'bg-emerald-50/60' : 'hover:bg-emerald-50/40'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="font-mono font-semibold text-slate-900 tabular-nums">
+                        <span className="font-mono font-semibold text-emerald-950 tabular-nums">
                           {c.trackingId}
                         </span>
                         <span
@@ -315,7 +315,7 @@ export function MyComplaintsView({
                                 ? 'text-red-700'
                                 : c.status === 'CLOSED'
                                   ? 'text-slate-600'
-                                  : 'text-emerald-700'
+                                  : 'text-[#006a4e]'
                           }`}
                         >
                           {STATUS_LABELS[c.status][locale]}
@@ -325,14 +325,14 @@ export function MyComplaintsView({
                       <p className="mt-1.5 text-xs text-slate-700 line-clamp-2">{c.rawText}</p>
 
                       {/* Mini lifecycle progress bar */}
-                      <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-emerald-100">
                         <div
                           className={`h-full transition-all duration-300 ${
                             c.status === 'ESCALATED'
                               ? 'bg-red-600'
                               : c.status === 'TRIAGING' || c.status === 'REOPENED'
                                 ? 'bg-amber-500'
-                                : 'bg-emerald-600'
+                                : 'bg-[#006a4e]'
                           }`}
                           style={{ width: `${pct}%` }}
                         />
@@ -360,9 +360,9 @@ export function MyComplaintsView({
             {timeline ? (
               <div className="space-y-6">
                 {/* Complaint Summary Header */}
-                <div className="border-b border-slate-100 pb-4">
+                <div className="border-b border-emerald-100 pb-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="font-mono text-base font-bold text-slate-900 tabular-nums">
+                    <span className="font-mono text-base font-bold text-emerald-950 tabular-nums">
                       {timeline.complaint.trackingId}
                     </span>
                     <span
@@ -372,7 +372,7 @@ export function MyComplaintsView({
                           : timeline.complaint.status === 'TRIAGING' ||
                               timeline.complaint.status === 'REOPENED'
                             ? 'text-amber-700'
-                            : 'text-emerald-700'
+                            : 'text-[#006a4e]'
                       }`}
                     >
                       {STATUS_LABELS[timeline.complaint.status][locale]}
@@ -400,7 +400,7 @@ export function MyComplaintsView({
                 />
 
                 {/* Visual Lifecycle Progress Stepper */}
-                <div className="border-t border-slate-100 pt-5">
+                <div className="border-t border-emerald-100 pt-5">
                   <ComplaintProgressStepper
                     complaint={timeline.complaint}
                     events={timeline.events}
@@ -408,16 +408,16 @@ export function MyComplaintsView({
                 </div>
 
                 {/* Vertical Audit Event Timeline */}
-                <div className="border-t border-slate-100 pt-5">
-                  <h3 className="font-display text-xs font-semibold text-slate-700 mb-3 flex items-center gap-1.5">
-                    <Clock className="h-3.5 w-3.5" />
+                <div className="border-t border-emerald-100 pt-5">
+                  <h3 className="font-display text-xs font-semibold text-emerald-950 mb-3 flex items-center gap-1.5">
+                    <Clock className="h-3.5 w-3.5 text-[#006a4e]" />
                     <span>{t.timelineHeading}</span>
                   </h3>
-                  <div className="divide-y divide-slate-100">
+                  <div className="divide-y divide-emerald-100">
                     {timeline.events.map((ev) => (
                       <div key={ev.id} className="py-3 first:pt-0 last:pb-0">
                         <div className="flex items-center justify-between gap-2 text-xs">
-                          <span className="font-mono font-semibold text-slate-900">
+                          <span className="font-mono font-semibold text-emerald-950">
                             {ev.eventType}
                           </span>
                           <span className="font-mono text-[11px] text-slate-500 tabular-nums">

@@ -167,13 +167,13 @@ export function TriageQueueView({
         </Surface>
         <Surface className="p-4">
           <div className="text-xs text-slate-500">Low-Confidence Queue (&lt; 70%)</div>
-          <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+          <div className="mt-1 font-mono text-2xl font-semibold text-emerald-950 tabular-nums">
             {data?.stats.totalLowConfidence ?? 0}
           </div>
         </Surface>
         <Surface className="p-4">
           <div className="text-xs text-slate-500">Logged Human Overrides</div>
-          <div className="mt-1 font-mono text-2xl font-semibold text-emerald-700 tabular-nums">
+          <div className="mt-1 font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">
             {data?.stats.loggedOverrides ?? 0}
           </div>
         </Surface>
@@ -181,14 +181,14 @@ export function TriageQueueView({
 
       {/* Segmented View Controls */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="inline-flex rounded-md bg-slate-100 p-1">
+        <div className="inline-flex rounded-md border border-emerald-100 bg-emerald-50/70 p-1">
           <button
             type="button"
             onClick={() => setSubTab('pending')}
             className={`rounded px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
               subTab === 'pending'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-emerald-950 shadow-sm'
+                : 'text-emerald-900/70 hover:text-emerald-950'
             }`}
           >
             Pending Triage ({pendingItems.length})
@@ -198,8 +198,8 @@ export function TriageQueueView({
             onClick={() => setSubTab('all_low')}
             className={`rounded px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
               subTab === 'all_low'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-emerald-950 shadow-sm'
+                : 'text-emerald-900/70 hover:text-emerald-950'
             }`}
           >
             All Low-Confidence ({allLowItems.length})
@@ -209,8 +209,8 @@ export function TriageQueueView({
             onClick={() => setSubTab('overrides')}
             className={`rounded px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer ${
               subTab === 'overrides'
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-white text-emerald-950 shadow-sm'
+                : 'text-emerald-900/70 hover:text-emerald-950'
             }`}
           >
             Override Training Log ({corrections.length})
@@ -250,24 +250,24 @@ export function TriageQueueView({
               return (
                 <Surface key={item.id} className="p-5 space-y-4">
                   {/* Top Metadata Line (Zero-Pill) */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-100 pb-3">
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="font-mono font-bold text-slate-900 tabular-nums">
+                      <span className="font-mono font-bold text-emerald-950 tabular-nums">
                         {item.trackingId}
                       </span>
-                      <span className="text-slate-300">·</span>
+                      <span className="text-emerald-300">·</span>
                       <span
                         className={`font-medium ${
-                          item.status === 'TRIAGING' ? 'text-amber-700' : 'text-slate-700'
+                          item.status === 'TRIAGING' ? 'text-amber-700' : 'text-[#006a4e]'
                         }`}
                       >
                         {STATUS_LABELS[item.status][locale]}
                       </span>
-                      <span className="text-slate-300">·</span>
+                      <span className="text-emerald-300">·</span>
                       <span className="text-slate-600">
                         {item.district}, {item.division}
                       </span>
-                      <span className="text-slate-300">·</span>
+                      <span className="text-emerald-300">·</span>
                       <span className="font-mono text-slate-500">lang: {item.language}</span>
                     </div>
 
@@ -287,19 +287,19 @@ export function TriageQueueView({
                         <div className="text-[11px] font-medium text-slate-500">
                           Citizen Complaint ({item.citizenName})
                         </div>
-                        <p className="mt-1 text-sm leading-relaxed text-slate-900">
+                        <p className="mt-1 text-sm leading-relaxed text-emerald-950">
                           {item.rawText}
                         </p>
                       </div>
 
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-3 space-y-2">
+                      <div className="rounded-md border border-emerald-200/80 bg-emerald-50/40 p-3 space-y-2">
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-medium text-slate-700">AI Raw Reasoning</span>
+                          <span className="font-medium text-emerald-950">AI Raw Reasoning</span>
                           {aiInfo.rawJsonPretty && (
                             <button
                               type="button"
                               onClick={() => setExpandedRawId(isRawExpanded ? null : item.id)}
-                              className="inline-flex items-center gap-1 font-mono text-emerald-700 hover:underline cursor-pointer"
+                              className="inline-flex items-center gap-1 font-mono text-[#006a4e] hover:underline cursor-pointer"
                             >
                               <FileCode2 className="h-3 w-3" />
                               <span>{isRawExpanded ? 'Hide Raw JSON' : 'View Raw JSON'}</span>
@@ -314,7 +314,7 @@ export function TriageQueueView({
                           </div>
                         )}
                         {isRawExpanded && aiInfo.rawJsonPretty && (
-                          <pre className="mt-2 max-h-40 overflow-auto rounded bg-slate-900 p-2.5 font-mono text-[11px] text-slate-100">
+                          <pre className="mt-2 max-h-40 overflow-auto rounded bg-emerald-950 p-2.5 font-mono text-[11px] text-emerald-50">
                             {aiInfo.rawJsonPretty}
                           </pre>
                         )}
@@ -322,7 +322,7 @@ export function TriageQueueView({
                     </div>
 
                     {/* Re-route Controls */}
-                    <div className="lg:col-span-6 flex flex-col justify-between space-y-3 rounded-md border border-slate-200 p-4">
+                    <div className="lg:col-span-6 flex flex-col justify-between space-y-3 rounded-md border border-emerald-200/80 bg-white p-4">
                       <div className="space-y-3">
                         <div>
                           <label className="mb-1.5 block text-xs font-medium text-slate-700">
@@ -394,10 +394,10 @@ export function TriageQueueView({
       ) : (
         /* Logged Overrides Table */
         <Surface className="overflow-hidden">
-          <div className="border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+          <div className="border-b border-emerald-200/80 px-6 py-4 flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <History className="h-4 w-4 text-emerald-700" />
-              <h3 className="font-display text-sm font-semibold text-slate-900">
+              <History className="h-4 w-4 text-[#006a4e]" />
+              <h3 className="font-display text-sm font-semibold text-emerald-950">
                 Logged AI Classification Overrides (Ground-Truth Training Data)
               </h3>
             </div>
@@ -413,7 +413,7 @@ export function TriageQueueView({
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
-                <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                <thead className="border-b border-emerald-200/80 bg-emerald-50/60 text-emerald-950">
                   <tr>
                     <th className="px-4 py-3 font-medium">Tracking ID</th>
                     <th className="px-4 py-3 font-medium">AI Predicted</th>
@@ -423,16 +423,16 @@ export function TriageQueueView({
                     <th className="px-4 py-3 font-medium">Notes &amp; Timestamp</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-emerald-100">
                   {corrections.map((corr) => (
-                    <tr key={corr.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3 font-mono font-semibold text-slate-900 whitespace-nowrap">
+                    <tr key={corr.id} className="hover:bg-emerald-50/40">
+                      <td className="px-4 py-3 font-mono font-semibold text-emerald-950 whitespace-nowrap">
                         {corr.trackingId || corr.complaintId}
                       </td>
                       <td className="px-4 py-3 font-mono text-red-700 whitespace-nowrap">
                         {corr.predictedCategoryCode}
                       </td>
-                      <td className="px-4 py-3 font-mono font-semibold text-emerald-700 whitespace-nowrap">
+                      <td className="px-4 py-3 font-mono font-semibold text-[#006a4e] whitespace-nowrap">
                         {corr.correctedCategoryCode}
                       </td>
                       <td className="px-4 py-3 text-slate-700 whitespace-nowrap">

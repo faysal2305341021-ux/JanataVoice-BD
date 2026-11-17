@@ -61,7 +61,7 @@ export function SlaCountdownTimer({
     }
     if (complaint.status === 'RESOLVED') {
       return (
-        <span className="font-mono text-[11px] text-emerald-700 tabular-nums">
+        <span className="font-mono text-[11px] text-[#006a4e] tabular-nums">
           {t.slaCompletedLabel}
         </span>
       );
@@ -77,7 +77,7 @@ export function SlaCountdownTimer({
     return (
       <span
         className={`inline-flex items-center gap-1 font-mono text-[11px] font-medium tabular-nums ${
-          m.isAtRisk ? 'text-amber-700' : 'text-emerald-700'
+          m.isAtRisk ? 'text-amber-700' : 'text-[#006a4e]'
         }`}
       >
         <Clock className="h-3 w-3 shrink-0" />
@@ -88,30 +88,30 @@ export function SlaCountdownTimer({
 
   // Detailed view for selected complaint dashboard panel
   const toneColor = m.isTerminal
-    ? 'text-emerald-700'
+    ? 'text-[#006a4e]'
     : m.isBreached
       ? 'text-red-700'
       : m.isAtRisk
         ? 'text-amber-700'
-        : 'text-emerald-700';
+        : 'text-[#006a4e]';
 
   const barColor = m.isTerminal
-    ? 'bg-emerald-600'
+    ? 'bg-[#006a4e]'
     : m.isBreached
       ? 'bg-red-600'
       : m.isAtRisk
         ? 'bg-amber-500'
-        : 'bg-emerald-600';
+        : 'bg-[#006a4e]';
 
   const firstRespDueMs = new Date(complaint.firstResponseDueAt).getTime();
   const firstRespPassed = nowMs >= firstRespDueMs;
 
   return (
-    <div className="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-3">
+    <div className="rounded-md border border-emerald-200/80 bg-emerald-50/40 p-4 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-700">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-emerald-950">
           {m.isTerminal ? (
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-700" />
+            <CheckCircle2 className="h-3.5 w-3.5 text-[#006a4e]" />
           ) : m.isBreached ? (
             <AlertTriangle className="h-3.5 w-3.5 text-red-700" />
           ) : (
@@ -131,13 +131,13 @@ export function SlaCountdownTimer({
 
       {/* Linear SLA progress track */}
       <div className="space-y-1.5">
-        <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-emerald-100">
           <div
             className={`h-full transition-all duration-300 ${barColor}`}
             style={{ width: `${m.isTerminal ? 100 : m.elapsedPercent}%` }}
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-600">
           <span className="font-mono tabular-nums">
             {m.elapsedPercent}
             {t.slaElapsedSuffix}
@@ -149,10 +149,10 @@ export function SlaCountdownTimer({
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 pt-2.5 text-[11px] text-slate-600">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-emerald-200/80 pt-2.5 text-[11px] text-slate-600">
         <span>
           {t.slaFirstRespLabel}:{' '}
-          <span className="font-mono tabular-nums text-slate-800">
+          <span className="font-mono tabular-nums text-emerald-950">
             {new Date(complaint.firstResponseDueAt).toLocaleString()}
           </span>
         </span>

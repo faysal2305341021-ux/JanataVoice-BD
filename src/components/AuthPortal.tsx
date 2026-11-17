@@ -112,11 +112,11 @@ export function AuthPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-[#f4f9f6] text-slate-900">
       {/* Clean Top Bar */}
-      <header className="border-b border-slate-200 bg-white">
+      <header className="border-b border-emerald-200/80 bg-white">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-8 px-6 py-4">
-          <span className="font-display text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0">
+          <span className="font-display text-lg font-bold tracking-tight text-[#006a4e] whitespace-nowrap shrink-0">
             {t.brandName}
           </span>
           <div className="flex items-center gap-3 shrink-0">
@@ -126,7 +126,7 @@ export function AuthPortal() {
               size="sm"
               onClick={() => setLocale(locale === 'en' ? 'bn' : 'en')}
             >
-              <Globe className="h-3.5 w-3.5" />
+              <Globe className="h-3.5 w-3.5 text-[#006a4e]" />
               <span>{locale === 'en' ? 'বাংলা' : 'English'}</span>
             </Button>
           </div>
@@ -138,10 +138,10 @@ export function AuthPortal() {
           {/* Left Column: National Governance Overview + Seeded Role Directory */}
           <div className="lg:col-span-7 space-y-8">
             <div className="space-y-4">
-              <p className="text-xs font-medium text-emerald-700">
+              <p className="text-xs font-semibold text-[#006a4e]">
                 {t.gatewayKicker}
               </p>
-              <h1 className="font-display text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl max-w-2xl [text-wrap:balance]">
+              <h1 className="font-display text-3xl font-bold tracking-tight text-emerald-950 sm:text-4xl max-w-2xl [text-wrap:balance]">
                 {t.heroTitle}
               </h1>
               <p className="max-w-2xl text-base leading-relaxed text-slate-600">
@@ -150,28 +150,28 @@ export function AuthPortal() {
             </div>
 
             {/* Key Architectural Guarantees */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 border-t border-b border-slate-200 py-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 border-t border-b border-emerald-200/80 py-5">
               <div>
-                <div className="font-mono text-2xl font-semibold text-slate-900 tabular-nums">{t.stat1Val}</div>
+                <div className="font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">{t.stat1Val}</div>
                 <div className="mt-1 text-xs text-slate-600">{t.stat1Desc}</div>
               </div>
               <div>
-                <div className="font-mono text-2xl font-semibold text-slate-900 tabular-nums">{t.stat2Val}</div>
+                <div className="font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">{t.stat2Val}</div>
                 <div className="mt-1 text-xs text-slate-600">{t.stat2Desc}</div>
               </div>
               <div>
-                <div className="font-mono text-2xl font-semibold text-slate-900 tabular-nums">{t.stat3Val}</div>
+                <div className="font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">{t.stat3Val}</div>
                 <div className="mt-1 text-xs text-slate-600">{t.stat3Desc}</div>
               </div>
             </div>
 
             {/* Compact 1-Click Demo Switcher */}
             <Surface className="p-5">
-              <div className="flex items-center justify-between gap-4 border-b border-slate-100 pb-3">
-                <h2 className="font-display text-sm font-semibold text-slate-900">
+              <div className="flex items-center justify-between gap-4 border-b border-emerald-100 pb-3">
+                <h2 className="font-display text-sm font-semibold text-emerald-950">
                   {t.demoAccountsHeading}
                 </h2>
-                <span className="font-mono text-[11px] text-slate-500">
+                <span className="font-mono text-[11px] text-emerald-800/70">
                   {t.demoAccountsSub}
                 </span>
               </div>
@@ -186,10 +186,10 @@ export function AuthPortal() {
                       type="button"
                       disabled={submitting}
                       onClick={() => handleQuickDemoLogin(acc.email)}
-                      className="flex items-center justify-between gap-3 rounded-md border border-slate-200 bg-white px-3.5 py-2.5 text-left transition-colors hover:border-emerald-700 hover:bg-slate-50 disabled:opacity-50 cursor-pointer"
+                      className="flex items-center justify-between gap-3 rounded-md border border-emerald-100 bg-white px-3.5 py-2.5 text-left transition-colors hover:border-[#006a4e] hover:bg-emerald-50/60 disabled:opacity-50 cursor-pointer"
                     >
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-900 truncate">
+                        <div className="text-xs font-semibold text-emerald-950 truncate">
                           {ROLE_LABELS[acc.role][locale]}
                         </div>
                         <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-slate-500 truncate">
@@ -197,12 +197,12 @@ export function AuthPortal() {
                           {acc.departmentId && (
                             <>
                               <span aria-hidden="true">·</span>
-                              <span className="font-mono">{acc.departmentId.replace('dept_', '').toUpperCase()}</span>
+                              <span className="font-mono text-[#006a4e]">{acc.departmentId.replace('dept_', '').toUpperCase()}</span>
                             </>
                           )}
                         </div>
                       </div>
-                      <LogIn className="h-3.5 w-3.5 shrink-0 text-emerald-700" />
+                      <LogIn className="h-3.5 w-3.5 shrink-0 text-[#006a4e]" />
                     </button>
                   ))
                 )}
@@ -213,14 +213,14 @@ export function AuthPortal() {
           {/* Right Column: Unified Login & ekID Citizen Registration */}
           <div className="lg:col-span-5">
             <Surface className="p-6">
-              <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-                <h2 className="font-display text-lg font-semibold text-slate-900">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+                <h2 className="font-display text-lg font-semibold text-emerald-950">
                   {t.signInTitle}
                 </h2>
               </div>
 
               {/* Segmented Tabs */}
-              <div className="mt-4 grid grid-cols-2 gap-1 rounded-md bg-slate-100 p-1">
+              <div className="mt-4 grid grid-cols-2 gap-1 rounded-md border border-emerald-100 bg-emerald-50/70 p-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -229,8 +229,8 @@ export function AuthPortal() {
                   }}
                   className={`rounded px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
                     mode === 'signin'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-emerald-950 shadow-sm'
+                      : 'text-emerald-900/70 hover:text-emerald-950'
                   }`}
                 >
                   {t.signInTab}
@@ -243,8 +243,8 @@ export function AuthPortal() {
                   }}
                   className={`rounded px-3 py-2 text-xs font-medium transition-colors whitespace-nowrap cursor-pointer ${
                     mode === 'signup'
-                      ? 'bg-white text-slate-900 shadow-sm'
-                      : 'text-slate-600 hover:text-slate-900'
+                      ? 'bg-white text-emerald-950 shadow-sm'
+                      : 'text-emerald-900/70 hover:text-emerald-950'
                   }`}
                 >
                   {t.signUpTab}

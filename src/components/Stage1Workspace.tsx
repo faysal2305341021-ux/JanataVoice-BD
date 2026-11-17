@@ -8,6 +8,8 @@ import {
   LogOut,
   UserCheck,
   Building2,
+  Bell,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext.tsx';
 import { SLA_TIER_LABELS, TRANSLATIONS } from '../lib/i18n.ts';
@@ -19,8 +21,9 @@ import {
   type SlaConfig,
   type UserRole,
 } from '../types/domain.ts';
+import { ComplaintDashboardView } from './ComplaintDashboardView.tsx';
 import { ComplaintSubmitView } from './ComplaintSubmitView.tsx';
-import { MyComplaintsView } from './MyComplaintsView.tsx';
+import { NotificationsView } from './NotificationsView.tsx';
 import { TriageQueueView } from './TriageQueueView.tsx';
 import { Button, Input, Select, Surface } from './ui/primitives.tsx';
 
@@ -116,19 +119,34 @@ const ROUTE_GUARD_MATRIX: Array<{
 ];
 
 export function Stage1Workspace() {
-  const { user, locale, setLocale, apiFetch, verifyEkId, updateProfile, logout } = useAuth();
+  const {
+    user,
+    locale,
+    setLocale,
+    apiFetch,
+    unreadCount,
+    latestAlert,
+    dismissLatestAlert,
+    refreshNotifications,
+    verifyEkId,
+    updateProfile,
+    logout,
+  } = useAuth();
   const t = TRANSLATIONS[locale];
 
-  type WorkspaceTab = 'submit' | 'my_complaints' | 'triage' | 'identity' | 'catalog' | 'roles';
+  type WorkspaceTab =
+    | 'dashboard'
+    | 'submit'
+    | 'triage'
+    | 'notifications'
+    | 'identity'
+    | 'catalog'
+    | 'roles';
 
-  const getDefaultTab = (role?: UserRole): WorkspaceTab => {
-    if (role === 'triage_officer') return 'triage';
-    if (role === 'citizen') return 'my_complaints';
-    if (role === 'admin') return 'triage';
-    return 'identity';
-  };
+  const getDefaultTab = (_role?: UserRole): WorkspaceTab => 'dashboard';
 
   const [activeTab, setActiveTab] = React.useState<WorkspaceTab>(() => getDefaultTab(user?.role));
+  const [focusedComplaintId, setFocusedComplaintId] = React.useState<string | null>(null);
   const [catalog, setCatalog] = React.useState<CatalogData | null>(null);
   const [deptFilter, setDeptFilter] = React.useState<string>('ALL');
 
@@ -216,22 +234,32 @@ export function Stage1Workspace() {
   const filteredCategories =
     catalog?.categories.filter((c) => deptFilter === 'ALL' || c.departmentId === deptFilter) || [];
 
+  const openComplaintInDashboard = React.useCallback((complaintId: string) => {
+    setFocusedComplaintId(complaintId);
+    setActiveTab('dashboard');
+  }, []);
+
   const allNavItems: Array<{ id: WorkspaceTab; label: string; visible: boolean }> = [
-    { id: 'my_complaints', label: t.navMyComplaints, visible: user.role === 'citizen' || user.role === 'admin' },
+    { id: 'dashboard', label: t.navDashboard, visible: true },
     { id: 'submit', label: t.navSubmit, visible: user.role === 'citizen' || user.role === 'admin' },
     { id: 'triage', label: t.navTriage, visible: user.role === 'triage_officer' || user.role === 'admin' },
-    { id: 'identity', label: t.navIdentity, visible: true },
-    { id: 'catalog', label: t.navCatalog, visible: true },
+    {
+      id: 'notifications',
+      label: unreadCount > 0 ? `${t.navNotifications} (${unreadCount})` : t.navNotifications,
+      visible: true,
+    },
+    { id: 'identity', label: t.navIdentity, visible: user.role !== 'admin' },
+    { id: 'catalog', label: t.navCatalog, visible: user.role !== 'admin' },
     { id: 'roles', label: t.navAccess, visible: user.role !== 'citizen' },
   ];
   const navItems = allNavItems.filter((item) => item.visible).slice(0, 5);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <div className="min-h-screen bg-[#f4f9f6] text-[#0c2419] flex flex-col">
       {/* Top Bar Contract: 3 zones */}
-      <header className="border-b border-slate-200 bg-white sticky top-0 z-20">
+      <header className="border-b border-emerald-200/80 bg-white sticky top-0 z-20">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-8 px-6 py-3.5">
-          <span className="font-display text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap shrink-0">
+          <span className="font-display text-lg font-bold tracking-tight text-[#006a4e] whitespace-nowrap shrink-0">
             {t.brandName}
           </span>
 
@@ -241,8 +269,10 @@ export function Stage1Workspace() {
                 key={item.id}
                 type="button"
                 onClick={() => setActiveTab(item.id)}
-                className={`whitespace-nowrap shrink-0 cursor-pointer transition-colors ${
-                  activeTab === item.id ? 'text-emerald-700 font-semibold' : 'hover:text-slate-900'
+                className={`whitespace-nowrap shrink-0 cursor-pointer py-1 transition-colors border-b-2 ${
+                  activeTab === item.id
+                    ? 'border-[#006a4e] text-[#006a4e] font-semibold'
+                    : 'border-transparent hover:text-emerald-950'
                 }`}
               >
                 {item.label}
@@ -254,7 +284,7 @@ export function Stage1Workspace() {
             <button
               type="button"
               onClick={() => setLocale(locale === 'en' ? 'bn' : 'en')}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 whitespace-nowrap shrink-0 cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-[#006a4e] whitespace-nowrap shrink-0 cursor-pointer transition-colors"
             >
               <Globe className="h-3.5 w-3.5" />
               <span>{locale === 'en' ? 'বাংলা' : 'English'}</span>
@@ -268,14 +298,14 @@ export function Stage1Workspace() {
       </header>
 
       {/* Mobile Nav Strip */}
-      <div className="flex md:hidden border-b border-slate-200 bg-white px-4 py-2 gap-2 overflow-x-auto">
+      <div className="flex md:hidden border-b border-emerald-200/80 bg-white px-4 py-2 gap-2 overflow-x-auto">
         {navItems.map((item) => (
           <button
             key={item.id}
             type="button"
             onClick={() => setActiveTab(item.id)}
             className={`px-3 py-1.5 text-xs font-medium rounded whitespace-nowrap shrink-0 ${
-              activeTab === item.id ? 'bg-emerald-50 text-emerald-800' : 'text-slate-600'
+              activeTab === item.id ? 'bg-emerald-50 text-[#006a4e] font-semibold' : 'text-slate-600'
             }`}
           >
             {item.label}
@@ -286,16 +316,18 @@ export function Stage1Workspace() {
       {/* Main Content */}
       <main className="mx-auto w-full max-w-7xl flex-1 px-6 py-8 space-y-8">
         {/* Context Strip */}
-        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-5">
+        <div className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-200/80 pb-5">
           <div>
             <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span className="font-medium text-emerald-700">{t.stage1Tag}</span>
+              <span className="font-semibold text-[#006a4e]">{t.stage1Tag}</span>
               <span aria-hidden="true">·</span>
               <span>{ROLE_LABELS[user.role][locale]}</span>
               {user.departmentId && (
                 <>
                   <span aria-hidden="true">·</span>
-                  <span className="font-mono">{user.departmentId.replace('dept_', '').toUpperCase()}</span>
+                  <span className="font-mono text-[#006a4e]">
+                    {user.departmentId.replace('dept_', '').toUpperCase()}
+                  </span>
                 </>
               )}
               <span aria-hidden="true">·</span>
@@ -303,42 +335,79 @@ export function Stage1Workspace() {
                 {user.district}, {user.division}
               </span>
             </div>
-            <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-slate-900">
+            <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-emerald-950">
+              {activeTab === 'dashboard' &&
+                (user.role === 'citizen' ? t.dashboardTitleCitizen : t.dashboardTitleStaff)}
               {activeTab === 'submit' && t.submitTitle}
-              {activeTab === 'my_complaints' && t.myComplaintsTitle}
               {activeTab === 'triage' && t.triageTitle}
+              {activeTab === 'notifications' && t.notificationsTitle}
               {activeTab === 'identity' && t.profileTitle}
               {activeTab === 'catalog' && t.catalogTitle}
               {activeTab === 'roles' && t.roleMatrixTitle}
             </h1>
             <p className="mt-1 text-sm text-slate-600">
+              {activeTab === 'dashboard' &&
+                (user.role === 'citizen' ? t.dashboardDescCitizen : t.dashboardDescStaff)}
               {activeTab === 'submit' && t.submitDesc}
-              {activeTab === 'my_complaints' && t.myComplaintsDesc}
               {activeTab === 'triage' && t.triageDesc}
+              {activeTab === 'notifications' && t.notificationsDesc}
               {activeTab === 'identity' && t.profileDesc}
               {activeTab === 'catalog' && t.catalogDesc}
               {activeTab === 'roles' && t.roleMatrixDesc}
             </p>
           </div>
           <div className="text-right text-xs text-slate-600">
-            <div className="font-medium text-slate-900">{user.name}</div>
+            <div className="font-semibold text-emerald-950">{user.name}</div>
             <div className="font-mono text-slate-500">{user.email}</div>
           </div>
         </div>
+
+        {/* Live Real-Time Notification Alert Strip */}
+        {latestAlert && (
+          <Surface className="px-4 py-3 flex flex-wrap items-center justify-between gap-3 bg-emerald-50/70">
+            <div className="flex items-start gap-2.5 min-w-0 flex-1 text-xs">
+              <Bell className="h-4 w-4 text-[#006a4e] shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <span className="font-semibold text-[#006a4e]">{t.newAlertPrefix}: </span>
+                <span className="text-emerald-950">{latestAlert.message}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => {
+                  openComplaintInDashboard(latestAlert.complaintId);
+                  dismissLatestAlert();
+                }}
+              >
+                <span>{t.openComplaintBtn}</span>
+              </Button>
+              <button
+                type="button"
+                aria-label="Dismiss notification"
+                onClick={dismissLatestAlert}
+                className="p-1 text-slate-500 hover:text-emerald-950 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          </Surface>
+        )}
 
         {/* TAB 1: IDENTITY & ekID */}
         {activeTab === 'identity' && (
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
             {/* Left: Profile & Once-Only Auto-Population */}
             <Surface className="lg:col-span-7 p-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
                 <div className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4 text-emerald-700" />
-                  <h2 className="font-display text-base font-semibold text-slate-900">
+                  <UserCheck className="h-4 w-4 text-[#006a4e]" />
+                  <h2 className="font-display text-base font-semibold text-emerald-950">
                     {t.onceOnlyCardTitle}
                   </h2>
                 </div>
-                <span className="text-xs font-medium text-emerald-700">{t.onceOnlyBadge}</span>
+                <span className="text-xs font-medium text-[#006a4e]">{t.onceOnlyBadge}</span>
               </div>
 
               {saveMessage && (
@@ -422,16 +491,16 @@ export function Stage1Workspace() {
 
             {/* Right: Mock ekID Digital Identity Card */}
             <Surface className="lg:col-span-5 p-6">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="h-4 w-4 text-emerald-700" />
-                  <h2 className="font-display text-base font-semibold text-slate-900">
+                  <ShieldCheck className="h-4 w-4 text-[#006a4e]" />
+                  <h2 className="font-display text-base font-semibold text-emerald-950">
                     {t.ekIdCardTitle}
                   </h2>
                 </div>
                 <span
                   className={`text-xs font-semibold ${
-                    user.ekIdVerified ? 'text-emerald-700' : 'text-amber-700'
+                    user.ekIdVerified ? 'text-[#006a4e]' : 'text-amber-700'
                   }`}
                 >
                   {user.ekIdVerified ? t.ekIdVerified : t.ekIdUnverified}
@@ -440,20 +509,20 @@ export function Stage1Workspace() {
 
               {user.ekIdVerified ? (
                 <div className="mt-5 space-y-4">
-                  <div className="rounded-md border border-slate-200 bg-slate-50 p-4 space-y-2.5">
+                  <div className="rounded-md border border-emerald-200/80 bg-emerald-50/40 p-4 space-y-2.5">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">{t.nid10DigitLabel}</span>
-                      <span className="font-mono font-semibold text-slate-900 tabular-nums">
+                      <span className="text-slate-600">{t.nid10DigitLabel}</span>
+                      <span className="font-mono font-semibold text-emerald-950 tabular-nums">
                         {user.nidMock}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">{t.ekIdTokenLabel}</span>
-                      <span className="font-mono text-emerald-700">{user.ekIdToken}</span>
+                      <span className="text-slate-600">{t.ekIdTokenLabel}</span>
+                      <span className="font-mono font-semibold text-[#006a4e]">{user.ekIdToken}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">{t.jurisdictionLabel}</span>
-                      <span className="text-slate-900">
+                      <span className="text-slate-600">{t.jurisdictionLabel}</span>
+                      <span className="text-emerald-950">
                         {user.district}, {user.division}
                       </span>
                     </div>
@@ -494,25 +563,25 @@ export function Stage1Workspace() {
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
               <Surface className="p-4">
                 <div className="text-xs text-slate-500">{t.departmentsLabel}</div>
-                <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+                <div className="mt-1 font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">
                   {catalog?.counts?.departments ?? '—'}
                 </div>
               </Surface>
               <Surface className="p-4">
                 <div className="text-xs text-slate-500">{t.categoriesLabel}</div>
-                <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+                <div className="mt-1 font-mono text-2xl font-semibold text-[#006a4e] tabular-nums">
                   {catalog?.counts?.categories ?? '—'}
                 </div>
               </Surface>
               <Surface className="p-4">
                 <div className="text-xs text-slate-500">{t.usersLabel}</div>
-                <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+                <div className="mt-1 font-mono text-2xl font-semibold text-emerald-950 tabular-nums">
                   {catalog?.counts?.users ?? '—'}
                 </div>
               </Surface>
               <Surface className="p-4">
                 <div className="text-xs text-slate-500">{t.complaintsLabel}</div>
-                <div className="mt-1 font-mono text-2xl font-semibold text-slate-900 tabular-nums">
+                <div className="mt-1 font-mono text-2xl font-semibold text-emerald-950 tabular-nums">
                   {catalog?.counts?.complaints ?? '—'}
                 </div>
               </Surface>
@@ -520,7 +589,7 @@ export function Stage1Workspace() {
 
             {/* 6 Departments */}
             <div className="space-y-3">
-              <h2 className="font-display text-base font-semibold text-slate-900">
+              <h2 className="font-display text-base font-semibold text-emerald-950">
                 {t.sixDeptsHeading}
               </h2>
               <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -528,10 +597,10 @@ export function Stage1Workspace() {
                   <Surface key={dept.id} className="p-4 flex flex-col justify-between">
                     <div>
                       <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
-                        <span className="font-mono font-semibold text-emerald-700">{dept.code}</span>
-                        <Building2 className="h-3.5 w-3.5 text-slate-400" />
+                        <span className="font-mono font-semibold text-[#006a4e]">{dept.code}</span>
+                        <Building2 className="h-3.5 w-3.5 text-emerald-600/70" />
                       </div>
-                      <div className="mt-1.5 font-display text-sm font-semibold text-slate-900">
+                      <div className="mt-1.5 font-display text-sm font-semibold text-emerald-950">
                         {locale === 'bn' ? dept.nameBn : dept.name}
                       </div>
                       <p className="mt-1 text-xs text-slate-600">
@@ -545,9 +614,9 @@ export function Stage1Workspace() {
 
             {/* 20 Categories Table */}
             <Surface className="overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 px-6 py-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-200/80 px-6 py-4">
                 <div>
-                  <h2 className="font-display text-base font-semibold text-slate-900">
+                  <h2 className="font-display text-base font-semibold text-emerald-950">
                     {t.twentyCatsHeading}
                   </h2>
                   <p className="text-xs text-slate-500">{t.twentyCatsSub}</p>
@@ -566,7 +635,7 @@ export function Stage1Workspace() {
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                  <thead className="border-b border-emerald-200/80 bg-emerald-50/60 text-emerald-950">
                     <tr>
                       <th className="px-4 py-3 font-medium">{t.colCode}</th>
                       <th className="px-4 py-3 font-medium">{t.colCategory}</th>
@@ -576,14 +645,14 @@ export function Stage1Workspace() {
                       <th className="px-4 py-3 text-right font-medium">{t.colResolution}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-emerald-100">
                     {filteredCategories.map((cat) => (
-                      <tr key={cat.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-mono text-slate-700 whitespace-nowrap">
+                      <tr key={cat.id} className="hover:bg-emerald-50/40">
+                        <td className="px-4 py-3 font-mono text-[#006a4e] whitespace-nowrap">
                           {cat.code}
                         </td>
                         <td className="px-4 py-3">
-                          <div className="font-medium text-slate-900">
+                          <div className="font-medium text-emerald-950">
                             {locale === 'bn' ? cat.nameBn : cat.nameEn}
                           </div>
                           <div className="text-slate-500">
@@ -600,7 +669,7 @@ export function Stage1Workspace() {
                                 ? 'text-red-700'
                                 : cat.slaTier === 'STANDARD'
                                   ? 'text-amber-700'
-                                  : 'text-slate-700'
+                                  : 'text-emerald-900'
                             }`}
                           >
                             {SLA_TIER_LABELS[cat.slaTier][locale]}
@@ -625,9 +694,9 @@ export function Stage1Workspace() {
         {activeTab === 'roles' && (
           <div className="space-y-6">
             <Surface className="p-6">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-100 pb-4">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-100 pb-4">
                 <div>
-                  <h2 className="font-display text-base font-semibold text-slate-900">
+                  <h2 className="font-display text-base font-semibold text-emerald-950">
                     {t.rbacGuardHeading}
                   </h2>
                   <p className="mt-0.5 text-xs text-slate-500">{t.rbacGuardSub}</p>
@@ -642,15 +711,15 @@ export function Stage1Workspace() {
                 <div className="mt-4">
                   {directoryResult.status === 200 ? (
                     <div className="space-y-3">
-                      <div className="flex items-center gap-2 text-xs font-medium text-emerald-700">
+                      <div className="flex items-center gap-2 text-xs font-medium text-[#006a4e]">
                         <CheckCircle2 className="h-4 w-4" />
                         <span>
                           200 OK — Loaded {directoryResult.users?.length || 0} seeded users across 7 roles.
                         </span>
                       </div>
-                      <div className="max-h-56 overflow-y-auto rounded border border-slate-200">
+                      <div className="max-h-56 overflow-y-auto rounded border border-emerald-200/80">
                         <table className="w-full text-left text-xs">
-                          <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 sticky top-0">
+                          <thead className="border-b border-emerald-200/80 bg-emerald-50/70 text-emerald-950 sticky top-0">
                             <tr>
                               <th className="px-3 py-2 font-medium">{t.fullNameLabel}</th>
                               <th className="px-3 py-2 font-medium">Role</th>
@@ -658,12 +727,12 @@ export function Stage1Workspace() {
                               <th className="px-3 py-2 font-medium">{t.districtLabel}</th>
                             </tr>
                           </thead>
-                          <tbody className="divide-y divide-slate-100">
+                          <tbody className="divide-y divide-emerald-100">
                             {directoryResult.users?.map((u) => (
-                              <tr key={u.id}>
-                                <td className="px-3 py-2 font-medium text-slate-900">{u.name}</td>
+                              <tr key={u.id} className="hover:bg-emerald-50/40">
+                                <td className="px-3 py-2 font-medium text-emerald-950">{u.name}</td>
                                 <td className="px-3 py-2 font-mono text-slate-700">{u.role}</td>
-                                <td className="px-3 py-2 font-mono text-slate-500">
+                                <td className="px-3 py-2 font-mono text-[#006a4e]">
                                   {u.departmentId ? u.departmentId.replace('dept_', '').toUpperCase() : '—'}
                                 </td>
                                 <td className="px-3 py-2 text-slate-600">{u.district}</td>
@@ -686,14 +755,14 @@ export function Stage1Workspace() {
             </Surface>
 
             <Surface className="overflow-hidden">
-              <div className="border-b border-slate-200 px-6 py-4">
-                <h2 className="font-display text-base font-semibold text-slate-900">
+              <div className="border-b border-emerald-200/80 px-6 py-4">
+                <h2 className="font-display text-base font-semibold text-emerald-950">
                   {t.routeMatrixHeading}
                 </h2>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-200 bg-slate-50 text-slate-600">
+                  <thead className="border-b border-emerald-200/80 bg-emerald-50/60 text-emerald-950">
                     <tr>
                       <th className="px-4 py-3 font-medium">{t.colModuleRoute}</th>
                       <th className="px-4 py-3 font-medium">{t.colBuildStage}</th>
@@ -703,13 +772,13 @@ export function Stage1Workspace() {
                       <th className="px-4 py-3 font-medium">{t.colAuthorizedRoles}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-emerald-100">
                     {ROUTE_GUARD_MATRIX.map((row) => {
                       const granted = row.allowedRoles.includes(user.role);
                       return (
-                        <tr key={row.route}>
+                        <tr key={row.route} className="hover:bg-emerald-50/40">
                           <td className="px-4 py-3">
-                            <div className="font-medium text-slate-900">
+                            <div className="font-medium text-emerald-950">
                               {locale === 'bn' ? row.routeBn : row.route}
                             </div>
                             <div className="text-slate-500">
@@ -722,7 +791,7 @@ export function Stage1Workspace() {
                           <td className="px-4 py-3 whitespace-nowrap">
                             <span
                               className={`font-medium ${
-                                granted ? 'text-emerald-700' : 'text-slate-400'
+                                granted ? 'text-[#006a4e]' : 'text-slate-400'
                               }`}
                             >
                               {granted ? t.accessPermitted : t.accessRestricted}
@@ -740,18 +809,24 @@ export function Stage1Workspace() {
             </Surface>
           </div>
         )}
-        {/* TAB 0: STAGE 2 VIEWS */}
+        {/* TAB 0: ROLE-SCOPED USER COMPLAINT DASHBOARD & NOTIFICATIONS */}
+        {activeTab === 'dashboard' && (
+          <ComplaintDashboardView
+            categories={catalog?.categories || []}
+            departments={catalog?.departments || []}
+            focusedComplaintId={focusedComplaintId}
+            onClearFocusedComplaint={() => setFocusedComplaintId(null)}
+          />
+        )}
+
         {activeTab === 'submit' && catalog && (
           <ComplaintSubmitView
             departments={catalog.departments}
             categories={catalog.categories}
-          />
-        )}
-
-        {activeTab === 'my_complaints' && (
-          <MyComplaintsView
-            categories={catalog?.categories || []}
-            departments={catalog?.departments || []}
+            onSubmitted={() => {
+              refreshNotifications();
+            }}
+            onViewInDashboard={openComplaintInDashboard}
           />
         )}
 
@@ -760,6 +835,10 @@ export function Stage1Workspace() {
             departments={catalog.departments}
             categories={catalog.categories}
           />
+        )}
+
+        {activeTab === 'notifications' && (
+          <NotificationsView onOpenComplaint={openComplaintInDashboard} />
         )}
       </main>
     </div>

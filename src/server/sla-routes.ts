@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth, requireRole, type AuthedRequest } from './auth.ts';
+import { registerRealtimeClient } from './realtime.ts';
 import { getLastSlaSweepSummary, runSlaEscalationSweep } from './sla-engine.ts';
 import { getStore, saveStore } from './store.ts';
 import type { SlaTier } from '../types/domain.ts';
@@ -114,18 +115,41 @@ export function registerSlaRoutes(app: Express): void {
     }
   );
 
+  // Real-time SSE notification stream for logged-in user
+  app.get('/api/notifications/stream', requireAuth, (req: AuthedRequest, res) => {
+    const unregister = registerRealtimeClient(req.user!.id, req.user!.role, res);
+    req.on('close', unregister);
+    req.on('error', unregister);
+  });
+
   // Notifications feed (own notifications, or ?all=true outbox for admin)
   app.get('/api/notifications', requireAuth, (req: AuthedRequest, res) => {
     const store = getStore();
     const wantAll = req.query.all === 'true' && req.user!.role === 'admin';
-    const items = wantAll
-      ? store.notifications
-      : store.notifications.filter((n) => n.userId === req.user!.id);
+    const items = (wantAll
+      ? [...store.notifications]
+      : store.notifications.filter((n) => n.userId === req.user!.id)
+    ).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
     res.json({
-      notifications: items.slice(0, 100),
+      notifications: items.slice(0, 120),
       unreadCount: items.filter((n) => !n.isRead).length,
     });
+  });
+
+  app.patch('/api/notifications/read-all', requireAuth, async (req: AuthedRequest, res) => {
+    const store = getStore();
+    let updated = 0;
+    for (const n of store.notifications) {
+      if (n.userId === req.user!.id && !n.isRead) {
+        n.isRead = true;
+        updated += 1;
+      }
+    }
+    if (updated > 0) {
+      await saveStore();
+    }
+    res.json({ ok: true, updated });
   });
 
   app.patch('/api/notifications/:id/read', requireAuth, async (req: AuthedRequest, res) => {

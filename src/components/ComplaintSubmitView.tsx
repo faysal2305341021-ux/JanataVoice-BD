@@ -60,10 +60,12 @@ export function ComplaintSubmitView({
   departments,
   categories,
   onSubmitted,
+  onViewInDashboard,
 }: {
   departments: Department[];
   categories: ComplaintCategory[];
   onSubmitted?: (complaint: Complaint) => void;
+  onViewInDashboard?: (complaintId: string) => void;
 }) {
   const { user, locale, apiFetch } = useAuth();
   const t = TRANSLATIONS[locale];
@@ -217,9 +219,9 @@ export function ComplaintSubmitView({
     <div className="grid grid-cols-1 gap-8 lg:grid-cols-12 items-start">
       <div className="lg:col-span-7 space-y-6">
         <Surface className="p-6">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-emerald-100 pb-4">
             <div>
-              <h2 className="font-display text-base font-semibold text-slate-900">
+              <h2 className="font-display text-base font-semibold text-emerald-950">
                 {t.submitTitle}
               </h2>
               <p className="mt-0.5 text-xs text-slate-500">{t.submitDesc}</p>
@@ -227,17 +229,17 @@ export function ComplaintSubmitView({
           </div>
 
           {/* Once-only auto-populated citizen banner */}
-          <div className="mt-4 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
+          <div className="mt-4 rounded-md border border-emerald-200/80 bg-emerald-50/50 px-4 py-3 text-xs text-slate-600 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <span className="font-medium text-slate-900">{user.name}</span>
-              <span aria-hidden="true" className="mx-2 text-slate-300">·</span>
+              <span className="font-medium text-emerald-950">{user.name}</span>
+              <span aria-hidden="true" className="mx-2 text-emerald-300">·</span>
               <span className="font-mono">{user.phone || '—'}</span>
-              <span aria-hidden="true" className="mx-2 text-slate-300">·</span>
+              <span aria-hidden="true" className="mx-2 text-emerald-300">·</span>
               <span>
                 {user.district}, {user.division}
               </span>
             </div>
-            <span className="font-medium text-emerald-700">
+            <span className="font-semibold text-[#006a4e]">
               {user.ekIdVerified ? `ekID: ${user.nidMock}` : t.onceOnlyBadge}
             </span>
           </div>
@@ -254,7 +256,7 @@ export function ComplaintSubmitView({
                   setClassification(null);
                   setCreatedResult(null);
                 }}
-                className="rounded border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50 cursor-pointer"
+                className="rounded border border-emerald-200 bg-white px-2.5 py-1 text-[11px] font-medium text-emerald-950 hover:bg-emerald-50/60 cursor-pointer"
               >
                 {locale === 'bn' ? sp.labelBn : sp.labelEn}
               </button>
@@ -282,14 +284,14 @@ export function ComplaintSubmitView({
                   setClassification(null);
                 }}
                 placeholder={t.complaintPlaceholder}
-                className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700"
+                className="w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm text-emerald-950 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006a4e]"
               />
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-700">
-                  <MapPin className="h-3.5 w-3.5 text-slate-400" />
+                  <MapPin className="h-3.5 w-3.5 text-[#006a4e]" />
                   <span>{t.locationAddressLabel}</span>
                 </label>
                 <Input
@@ -300,14 +302,14 @@ export function ComplaintSubmitView({
               </div>
               <div>
                 <label className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-700">
-                  <Upload className="h-3.5 w-3.5 text-slate-400" />
+                  <Upload className="h-3.5 w-3.5 text-[#006a4e]" />
                   <span>{t.photoEvidenceLabel}</span>
                 </label>
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleImageChange}
-                  className="block w-full text-xs text-slate-600 file:mr-3 file:rounded file:border file:border-slate-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-slate-700 hover:file:bg-slate-50"
+                  className="block w-full text-xs text-slate-600 file:mr-3 file:rounded file:border file:border-emerald-200 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-emerald-950 hover:file:bg-emerald-50"
                 />
               </div>
             </div>
@@ -320,7 +322,7 @@ export function ComplaintSubmitView({
                 <button
                   type="button"
                   onClick={handleVoiceDictation}
-                  className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 hover:underline cursor-pointer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-[#006a4e] hover:underline cursor-pointer"
                 >
                   <Mic className="h-3.5 w-3.5" />
                   <span>{recording ? t.voiceListeningBtn : t.voiceDictateBtn}</span>
@@ -334,7 +336,7 @@ export function ComplaintSubmitView({
             </div>
 
             {imageBase64 && (
-              <div className="rounded border border-slate-200 p-2">
+              <div className="rounded border border-emerald-200/80 p-2">
                 <img
                   src={imageBase64}
                   alt="Complaint attachment preview"
@@ -358,13 +360,13 @@ export function ComplaintSubmitView({
       <div className="lg:col-span-5 space-y-6">
         {classification && (
           <Surface className="p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-display text-base font-semibold text-slate-900">
+            <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+              <h3 className="font-display text-base font-semibold text-emerald-950">
                 {t.aiPreviewTitle}
               </h3>
               <span
                 className={`font-mono text-xs font-semibold tabular-nums ${
-                  classification.confidence < 0.7 ? 'text-amber-700' : 'text-emerald-700'
+                  classification.confidence < 0.7 ? 'text-amber-700' : 'text-[#006a4e]'
                 }`}
               >
                 {Math.round(classification.confidence * 100)}
@@ -378,7 +380,7 @@ export function ComplaintSubmitView({
                 <div>{t.lowConfWarning}</div>
               </div>
             ) : (
-              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800 flex items-start gap-2">
+              <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-xs text-[#006a4e] flex items-start gap-2">
                 <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
                 <div>
                   {t.highConfNotice}{' '}
@@ -394,15 +396,15 @@ export function ComplaintSubmitView({
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">{t.modelEngineLabel}</span>
-                <span className="font-mono text-slate-800">{classification.model_version}</span>
+                <span className="font-mono text-emerald-950">{classification.model_version}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">{t.detectedLangLabel}</span>
-                <span className="font-mono text-slate-800">{classification.detected_language}</span>
+                <span className="font-mono text-emerald-950">{classification.detected_language}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">{t.slaTierPriorityLabel}</span>
-                <span className="font-mono text-slate-800">
+                <span className="font-mono text-emerald-950">
                   {SLA_TIER_LABELS[classification.sla_tier as SlaTier]?.[locale] ||
                     classification.sla_tier}{' '}
                   · {classification.priority}
@@ -410,7 +412,7 @@ export function ComplaintSubmitView({
               </div>
             </div>
 
-            <div className="rounded border border-slate-200 bg-slate-50 p-3">
+            <div className="rounded border border-emerald-200/80 bg-emerald-50/40 p-3">
               <div className="text-[11px] font-medium text-slate-500">{t.aiRawReasoningLabel}</div>
               <p className="mt-1 text-xs leading-relaxed text-slate-700">
                 {classification.raw_reasoning}
@@ -439,7 +441,7 @@ export function ComplaintSubmitView({
                 ))}
               </Select>
               {overrideCode !== classification.category_code && (
-                <p className="mt-1 text-[11px] text-emerald-700">
+                <p className="mt-1 text-[11px] text-[#006a4e]">
                   {t.overrideLoggedHint} ({classification.category_code} → {overrideCode})
                 </p>
               )}
@@ -459,18 +461,18 @@ export function ComplaintSubmitView({
 
         {createdResult && (
           <Surface className="p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="font-display text-base font-semibold text-emerald-800">
+            <div className="flex items-center justify-between border-b border-emerald-100 pb-3">
+              <h3 className="font-display text-base font-semibold text-[#006a4e]">
                 {t.complaintRegisteredTitle}
               </h3>
-              <span className="font-mono text-sm font-semibold text-slate-900 tabular-nums">
+              <span className="font-mono text-sm font-semibold text-emerald-950 tabular-nums">
                 {createdResult.complaint.trackingId}
               </span>
             </div>
             <div className="space-y-2 text-xs">
               <div className="flex justify-between">
                 <span className="text-slate-500">{t.currentStatusLabel}</span>
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-emerald-950">
                   {STATUS_LABELS[createdResult.complaint.status][locale]}
                 </span>
               </div>
@@ -499,14 +501,14 @@ export function ComplaintSubmitView({
                 </span>
               </div>
             </div>
-            <div className="border-t border-slate-100 pt-3">
+            <div className="border-t border-emerald-100 pt-3">
               <div className="text-[11px] font-medium text-slate-500 mb-2">
                 {t.auditRecordedLabel} ({createdResult.events.length})
               </div>
-              <div className="divide-y divide-slate-100 rounded border border-slate-200">
+              <div className="divide-y divide-emerald-100 rounded border border-emerald-200/80">
                 {createdResult.events.map((ev) => (
                   <div key={ev.id} className="text-xs px-3 py-2">
-                    <div className="font-mono font-medium text-slate-800">{ev.eventType}</div>
+                    <div className="font-mono font-medium text-emerald-950">{ev.eventType}</div>
                     <div className="mt-0.5 font-mono text-[10px] text-slate-400 truncate" title={ev.hash}>
                       SHA-256 · {ev.hash.slice(0, 10)}…{ev.hash.slice(-6)}
                     </div>
@@ -514,12 +516,25 @@ export function ComplaintSubmitView({
                 ))}
               </div>
             </div>
+            {onViewInDashboard && (
+              <div className="pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => onViewInDashboard(createdResult.complaint.id)}
+                >
+                  <span>{t.viewInDashboardBtn}</span>
+                </Button>
+              </div>
+            )}
           </Surface>
         )}
 
         {!classification && !createdResult && (
-          <Surface className="p-6 text-xs text-slate-500 space-y-2">
-            <div className="font-display text-sm font-semibold text-slate-900">
+          <Surface className="p-6 text-xs text-slate-600 space-y-2">
+            <div className="font-display text-sm font-semibold text-emerald-950">
               {t.howItWorksTitle}
             </div>
             <p className="leading-relaxed">{t.howItWorks1}</p>

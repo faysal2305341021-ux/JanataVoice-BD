@@ -3,14 +3,14 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../../lib/utils.ts';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0 rounded-md text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006a4e] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 cursor-pointer',
   {
     variants: {
       variant: {
-        primary: 'bg-emerald-700 text-white hover:bg-emerald-800',
-        secondary: 'bg-slate-900 text-white hover:bg-slate-800',
-        outline: 'border border-slate-300 bg-white text-slate-800 hover:bg-slate-50',
-        ghost: 'text-slate-700 hover:bg-slate-100 hover:text-slate-900',
+        primary: 'bg-[#006a4e] text-white hover:bg-[#00553e]',
+        secondary: 'bg-emerald-950 text-white hover:bg-emerald-900',
+        outline: 'border border-emerald-200 bg-white text-emerald-950 hover:bg-emerald-50/70',
+        ghost: 'text-emerald-900 hover:bg-emerald-50 hover:text-emerald-950',
         destructive: 'bg-red-600 text-white hover:bg-red-700',
       },
       size: {
@@ -42,7 +42,7 @@ export const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttribute
     <input
       ref={ref}
       className={cn(
-        'flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-10 w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006a4e] disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}
@@ -56,7 +56,7 @@ export const Select = React.forwardRef<HTMLSelectElement, React.SelectHTMLAttrib
     <select
       ref={ref}
       className={cn(
-        'flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 disabled:cursor-not-allowed disabled:opacity-50',
+        'flex h-10 w-full rounded-md border border-emerald-200 bg-white px-3 py-2 text-sm text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#006a4e] disabled:cursor-not-allowed disabled:opacity-50',
         className
       )}
       {...props}
@@ -72,7 +72,7 @@ export function Surface({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('rounded-lg border border-slate-200 bg-white', className)}
+      className={cn('rounded-lg border border-emerald-200/80 bg-white', className)}
       {...props}
     >
       {children}
