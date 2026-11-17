@@ -1,0 +1,270 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Citizen, government officer, field worker, department head, high authority, or system admin",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 32 },
+        "email": { "type": "string", "format": "email", "maxLength": 160 },
+        "nidMock": { "type": "string", "maxLength": 20 },
+        "ekIdToken": { "type": "string", "maxLength": 128 },
+        "ekIdVerified": { "type": "boolean" },
+        "role": {
+          "type": "string",
+          "enum": [
+            "citizen",
+            "triage_officer",
+            "field_worker",
+            "dept_officer",
+            "dept_head",
+            "high_authority",
+            "admin"
+          ]
+        },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "division": { "type": "string", "maxLength": 64 },
+        "district": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "email", "role", "division", "district"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "Bangladesh government service department",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "maxLength": 160 },
+        "nameBn": { "type": "string", "maxLength": 200 },
+        "code": { "type": "string", "maxLength": 24 },
+        "parentDepartmentId": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "name", "nameBn", "code"]
+    },
+    "ComplaintCategory": {
+      "title": "ComplaintCategory",
+      "description": "Department-owned grievance category with SLA rules",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "maxLength": 48 },
+        "nameEn": { "type": "string", "maxLength": 160 },
+        "nameBn": { "type": "string", "maxLength": 200 },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "slaTier": { "type": "string", "enum": ["CRITICAL", "STANDARD", "COMPLEX", "POLICY"] },
+        "firstResponseHours": { "type": "number" },
+        "resolutionDays": { "type": "number" }
+      },
+      "required": ["id", "code", "nameEn", "nameBn", "departmentId", "slaTier", "firstResponseHours", "resolutionDays"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Citizen grievance record routed with AI classification and tracked under SLA",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "trackingId": { "type": "string", "maxLength": 32 },
+        "citizenId": { "type": "string", "maxLength": 128 },
+        "rawText": { "type": "string", "minLength": 5, "maxLength": 5000 },
+        "language": { "type": "string", "enum": ["bn", "en", "banglish"] },
+        "categoryId": { "type": "string", "maxLength": 64 },
+        "departmentId": { "type": "string", "maxLength": 64 },
+        "aiConfidence": { "type": "number" },
+        "aiReasonCode": { "type": "string", "maxLength": 128 },
+        "aiModelVersion": { "type": "string", "maxLength": 64 },
+        "priority": { "type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW"] },
+        "status": {
+          "type": "string",
+          "enum": [
+            "SUBMITTED",
+            "TRIAGING",
+            "ASSIGNED",
+            "IN_PROGRESS",
+            "RESOLVED",
+            "CLOSED",
+            "REOPENED",
+            "ESCALATED"
+          ]
+        },
+        "slaDueAt": { "type": "string", "format": "date-time" },
+        "currentLevel": { "type": "integer" },
+        "locationLat": { "type": "number" },
+        "locationLng": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "closedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "trackingId", "citizenId", "rawText", "language", "status", "currentLevel", "createdAt"]
+    },
+    "ComplaintEvent": {
+      "title": "ComplaintEvent",
+      "description": "Append-only SHA-256 hash-chained audit ledger event",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "actorId": { "type": "string", "maxLength": 128 },
+        "eventType": { "type": "string", "maxLength": 64 },
+        "fromStatus": { "type": "string", "maxLength": 32 },
+        "toStatus": { "type": "string", "maxLength": 32 },
+        "payloadJson": { "type": "string", "maxLength": 8000 },
+        "prevHash": { "type": "string", "maxLength": 128 },
+        "hash": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "complaintId", "actorId", "eventType", "prevHash", "hash", "createdAt"]
+    },
+    "Assignment": {
+      "title": "Assignment",
+      "description": "Officer or field worker assignment record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "assigneeId": { "type": "string", "maxLength": 128 },
+        "assignedBy": { "type": "string", "maxLength": 128 },
+        "assignedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "complaintId", "assigneeId", "assignedBy", "assignedAt"]
+    },
+    "FieldReport": {
+      "title": "FieldReport",
+      "description": "Geolocated before/after field inspection evidence required before closing",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "workerId": { "type": "string", "maxLength": 128 },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "beforePhotoUrl": { "type": "string", "maxLength": 200000 },
+        "afterPhotoUrl": { "type": "string", "maxLength": 200000 },
+        "geoLat": { "type": "number" },
+        "geoLng": { "type": "number" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "complaintId", "workerId", "notes", "geoLat", "geoLng", "submittedAt"]
+    },
+    "Escalation": {
+      "title": "Escalation",
+      "description": "SLA breach or citizen-reopen authority escalation record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "fromLevel": { "type": "integer" },
+        "toLevel": { "type": "integer" },
+        "reason": { "type": "string", "maxLength": 500 },
+        "escalatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "complaintId", "fromLevel", "toLevel", "reason", "escalatedAt"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "In-app, email-mock, or SMS-mock citizen and officer notification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "channel": { "type": "string", "enum": ["IN_APP", "EMAIL_MOCK", "SMS_MOCK"] },
+        "message": { "type": "string", "maxLength": 1000 },
+        "isRead": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "complaintId", "channel", "message", "isRead", "createdAt"]
+    },
+    "Feedback": {
+      "title": "Feedback",
+      "description": "Citizen confirmation or reopen satisfaction feedback",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "citizenId": { "type": "string", "maxLength": 128 },
+        "satisfied": { "type": "boolean" },
+        "comment": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "complaintId", "citizenId", "satisfied", "createdAt"]
+    },
+    "AiCorrection": {
+      "title": "AiCorrection",
+      "description": "Ground-truth human override log for AI classification training",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "complaintId": { "type": "string", "maxLength": 128 },
+        "predictedCategoryCode": { "type": "string", "maxLength": 64 },
+        "correctedCategoryCode": { "type": "string", "maxLength": 64 },
+        "actorId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "complaintId", "predictedCategoryCode", "correctedCategoryCode", "actorId", "createdAt"]
+    },
+    "SlaConfig": {
+      "title": "SlaConfig",
+      "description": "Admin-configurable SLA tier policy parameters",
+      "type": "object",
+      "properties": {
+        "tier": { "type": "string", "enum": ["CRITICAL", "STANDARD", "COMPLEX", "POLICY"] },
+        "firstResponseHours": { "type": "number" },
+        "resolutionDays": { "type": "number" },
+        "reminderPercent": { "type": "number" },
+        "citizenConfirmHours": { "type": "number" }
+      },
+      "required": ["tier", "firstResponseHours", "resolutionDays", "reminderPercent", "citizenConfirmHours"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "User profiles and role assignments"
+    },
+    "/departments/{departmentId}": {
+      "schema": { "$ref": "Department" },
+      "description": "Government departments"
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "ComplaintCategory" },
+      "description": "Complaint categories and SLA windows"
+    },
+    "/complaints/{complaintId}": {
+      "schema": { "$ref": "Complaint" },
+      "description": "Citizen grievance records"
+    },
+    "/complaint_events/{eventId}": {
+      "schema": { "$ref": "ComplaintEvent" },
+      "description": "Append-only SHA-256 hash-chained audit events"
+    },
+    "/assignments/{assignmentId}": {
+      "schema": { "$ref": "Assignment" },
+      "description": "Complaint officer and field worker assignments"
+    },
+    "/field_reports/{reportId}": {
+      "schema": { "$ref": "FieldReport" },
+      "description": "Field inspection reports with geolocated photos"
+    },
+    "/escalations/{escalationId}": {
+      "schema": { "$ref": "Escalation" },
+      "description": "Automated and appellate escalation records"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "Notification" },
+      "description": "In-app, mocked email, and mocked SMS notifications"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": { "$ref": "Feedback" },
+      "description": "Citizen satisfaction and reopen records"
+    },
+    "/ai_corrections/{correctionId}": {
+      "schema": { "$ref": "AiCorrection" },
+      "description": "Logged human overrides of AI classification"
+    },
+    "/sla_configs/{tierId}": {
+      "schema": { "$ref": "SlaConfig" },
+      "description": "Configurable SLA tier defaults"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "JanataVoice BD — One-Stop AI Complaint System",
+  "description": "National one-stop AI citizen grievance, SLA enforcement, escalation, and cryptographic audit platform for Bangladesh government services.",
+  "requestFramePermissions": ["geolocation", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

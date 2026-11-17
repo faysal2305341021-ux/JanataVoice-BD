@@ -1,0 +1,227 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitive Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'faysal2305341021@diu.edu.bd';
+    }
+
+    function hasRole(roles) {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in roles;
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || hasRole(['admin']);
+    }
+
+    function isStaff() {
+      return isAdmin() || hasRole(['triage_officer', 'field_worker', 'dept_officer', 'dept_head', 'high_authority']);
+    }
+
+    // --- Validation Blueprints ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'division', 'district']) &&
+        data.keys().hasOnly([
+          'id', 'name', 'phone', 'email', 'nidMock', 'ekIdToken',
+          'ekIdVerified', 'role', 'departmentId', 'division', 'district', 'createdAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.name is string && data.name.size() >= 2 && data.name.size() <= 120 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 160 &&
+        data.role in ['citizen', 'triage_officer', 'field_worker', 'dept_officer', 'dept_head', 'high_authority', 'admin'] &&
+        data.division is string && data.division.size() >= 2 && data.division.size() <= 64 &&
+        data.district is string && data.district.size() >= 2 && data.district.size() <= 64;
+    }
+
+    function isValidComplaint(data) {
+      return data.keys().hasAll(['id', 'trackingId', 'citizenId', 'rawText', 'language', 'status', 'currentLevel', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'trackingId', 'citizenId', 'citizenName', 'citizenPhone', 'division', 'district',
+          'rawText', 'language', 'categoryId', 'categoryCode', 'departmentId',
+          'aiConfidence', 'aiReasonCode', 'aiModelVersion', 'priority', 'status',
+          'slaDueAt', 'firstResponseDueAt', 'currentLevel', 'assignedOfficerId', 'assignedWorkerId',
+          'locationLat', 'locationLng', 'addressText', 'imageUrl', 'voiceNoteUrl',
+          'resolvedAt', 'createdAt', 'closedAt'
+        ]) &&
+        isValidId(data.id) &&
+        data.trackingId is string && data.trackingId.size() <= 32 &&
+        isValidId(data.citizenId) &&
+        data.rawText is string && data.rawText.size() >= 5 && data.rawText.size() <= 5000 &&
+        data.language in ['bn', 'en', 'banglish'] &&
+        data.status in ['SUBMITTED', 'TRIAGING', 'ASSIGNED', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'REOPENED', 'ESCALATED'] &&
+        data.currentLevel is int && data.currentLevel >= 1 && data.currentLevel <= 4;
+    }
+
+    function isValidComplaintEvent(data) {
+      return data.keys().hasAll(['id', 'complaintId', 'actorId', 'eventType', 'prevHash', 'hash', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'complaintId', 'actorId', 'eventType', 'fromStatus', 'toStatus', 'payloadJson', 'prevHash', 'hash', 'createdAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.complaintId) &&
+        data.actorId is string && data.actorId.size() <= 128 &&
+        data.eventType is string && data.eventType.size() <= 64 &&
+        data.prevHash is string && data.prevHash.size() <= 128 &&
+        data.hash is string && data.hash.size() <= 128;
+    }
+
+    function isValidFeedback(data) {
+      return data.keys().hasAll(['id', 'complaintId', 'citizenId', 'satisfied', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'complaintId', 'citizenId', 'satisfied', 'comment', 'createdAt']) &&
+        isValidId(data.id) &&
+        isValidId(data.complaintId) &&
+        isValidId(data.citizenId) &&
+        data.satisfied is bool;
+    }
+
+    // --- Collection Rules ---
+
+    // Connection test probe (safe public read only on test/connection)
+    match /test/connection {
+      allow get: if true;
+      allow list, write: if false;
+    }
+
+    // Users (PII Protected)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isStaff());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId) && isVerifiedUser() && isOwner(userId) &&
+        isValidUser(incoming()) && incoming().id == userId && incoming().role == 'citizen';
+      allow update: if isValidId(userId) && isVerifiedUser() && isValidUser(incoming()) && (
+        isAdmin() ||
+        (isOwner(userId) &&
+          incoming().role == existing().role &&
+          incoming().id == existing().id &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'division', 'district', 'nidMock', 'ekIdToken', 'ekIdVerified']))
+      );
+      allow delete: if false;
+    }
+
+    // Reference Catalogs (Read-only for authenticated users, admin write)
+    match /departments/{deptId} {
+      allow get: if isValidId(deptId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /categories/{catId} {
+      allow get: if isValidId(catId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    match /sla_configs/{tierId} {
+      allow get: if isValidId(tierId) && isSignedIn();
+      allow list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Complaints
+    match /complaints/{complaintId} {
+      allow get: if isValidId(complaintId) && isSignedIn() && (existing().citizenId == request.auth.uid || isStaff());
+      allow list: if isSignedIn() && (resource.data.citizenId == request.auth.uid || isAdmin());
+      allow create: if isValidId(complaintId) && isVerifiedUser() && isValidComplaint(incoming()) &&
+        incoming().id == complaintId &&
+        incoming().citizenId == request.auth.uid &&
+        incoming().status in ['SUBMITTED', 'TRIAGING'] &&
+        incoming().currentLevel == 1;
+      allow update: if isValidId(complaintId) && isVerifiedUser() && isValidComplaint(incoming()) && (
+        isAdmin() ||
+        (existing().status != 'CLOSED' && isStaff() &&
+          incoming().citizenId == existing().citizenId &&
+          incoming().id == existing().id &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'categoryId', 'categoryCode', 'departmentId', 'priority', 'assignedOfficerId', 'assignedWorkerId', 'currentLevel', 'slaDueAt', 'resolvedAt', 'closedAt']))
+      );
+      allow delete: if false;
+    }
+
+    // Append-Only Audit Events (Immutable Forever)
+    match /complaint_events/{eventId} {
+      allow get: if isValidId(eventId) && isStaff();
+      allow list: if isAdmin();
+      allow create: if isValidId(eventId) && isVerifiedUser() && isValidComplaintEvent(incoming()) && isStaff();
+      allow update, delete: if false;
+    }
+
+    // Assignments
+    match /assignments/{assignmentId} {
+      allow get: if isValidId(assignmentId) && isStaff();
+      allow list: if isAdmin();
+      allow create, update: if isValidId(assignmentId) && isStaff();
+      allow delete: if false;
+    }
+
+    // Field Reports
+    match /field_reports/{reportId} {
+      allow get: if isValidId(reportId) && isStaff();
+      allow list: if isAdmin();
+      allow create: if isValidId(reportId) && isStaff();
+      allow update, delete: if false;
+    }
+
+    // Escalations
+    match /escalations/{escalationId} {
+      allow get: if isValidId(escalationId) && isStaff();
+      allow list: if isAdmin();
+      allow create: if isValidId(escalationId) && isStaff();
+      allow update, delete: if false;
+    }
+
+    // Notifications (Owner or Admin)
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isValidId(notificationId) && isStaff();
+      allow update: if isValidId(notificationId) && isSignedIn() && existing().userId == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['isRead']);
+      allow delete: if false;
+    }
+
+    // Feedback
+    match /feedbacks/{feedbackId} {
+      allow get: if isValidId(feedbackId) && isSignedIn() && (existing().citizenId == request.auth.uid || isStaff());
+      allow list: if isAdmin();
+      allow create: if isValidId(feedbackId) && isVerifiedUser() && isValidFeedback(incoming()) &&
+        incoming().citizenId == request.auth.uid;
+      allow update, delete: if false;
+    }
+
+    // AI Ground-Truth Corrections
+    match /ai_corrections/{correctionId} {
+      allow get: if isValidId(correctionId) && isStaff();
+      allow list: if isAdmin();
+      allow create: if isValidId(correctionId) && isVerifiedUser();
+      allow update, delete: if false;
+    }
+  }
+}
